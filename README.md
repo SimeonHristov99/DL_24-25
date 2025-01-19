@@ -212,7 +212,7 @@ Something which you may not accept is that whatever I do, I do it because I love
 
 ### What if I'm having difficulties with tasks from `For Home`?
 
-Option 1: You ask me in-person. I'll be leading the elective disciple `Machine Learning and Data Mining` on Monday, 8 am. You can come then and ask me there as well.
+Option 1: You ask me in-person.
 
 Option 2: We arrange a Google Meet.
 
