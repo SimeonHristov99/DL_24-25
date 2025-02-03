@@ -59,7 +59,7 @@ Please follow the instructions in one of the following two folders:
 
 - [ ] Homework 1: 04/05.04 - 04.05.
 - [ ] Homework 2: 09/10.05 - 01.06.
-- [ ] Exam: 12.04 or 13.04.
+- [ ] Exam: 12.04 or 13.04. Room: ???.
 - [ ] Projects: 08.05 - date of defense.
 
 ## Resources
