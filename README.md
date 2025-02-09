@@ -198,6 +198,12 @@ It's not as dumb as you may think and has great power to transform how you think
 
 Only over email, using the already established email thread.
 
+### What is the timeline for submitting `For Home`?
+
+Think of it like a [scrum sprint](https://www.atlassian.com/agile/scrum/sprints). Usually, a sprint is `2` weeks. Well, in our course, it is `1` week.
+
+However, there are no problems if you cannot make it on time - just tell me.
+
 ### You are too mean and cause me psychological stress. How do I convey this to you?
 
 This can definitely happen as it's more than certain that the feedback I'll give you:
