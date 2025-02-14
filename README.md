@@ -10,50 +10,50 @@ Please follow the instructions in one of the following two folders:
 ## Sessions with Simo
 
 1. Session 01:
-   1. Group 1: 17.02, Monday, 7 pm, ???
-   2. Group 2: 18.02, Tuesday, 7 pm, ???
+   1. Group 1: 17.02, Monday, 7:15 pm, 107
+   2. Group 2: 18.02, Tuesday, 7:30 pm, 120
 2. Session 02:
-   1. Group 1: 24.02, Monday, 7 pm, ???
-   2. Group 2: 25.02, Tuesday, 7 pm, ???
+   1. Group 1: 24.02, Monday, 7:15 pm, 107
+   2. Group 2: 25.02, Tuesday, 7:30 pm, 120
 3. Session 03:
-   1. Group 1: **03.03, Monday, 7 pm, ??? - Wednesday, Friday, Saturday?**
-   2. Group 2: 04.03, Tuesday, 7 pm, ???
+   1. Group 1: **03.03, ???, Wednesday, Friday, Saturday?**
+   2. Group 2: 04.03, Tuesday, 7:30 pm, 120
 4. Session 04:
-   1. Group 1: 10.03, Monday, 7 pm, ???
-   2. Group 2: 11.03, Tuesday, 7 pm, ???
+   1. Group 1: 10.03, Monday, 7:15 pm, 107
+   2. Group 2: 11.03, Tuesday, 7:30 pm, 120
 5. Session 05:
-   1. Group 1: 17.03, Monday, 7 pm, ???
-   2. Group 2: 18.03, Tuesday, 7 pm, ???
+   1. Group 1: 17.03, Monday, 7:15 pm, 107
+   2. Group 2: 18.03, Tuesday, 7:30 pm, 120
 6. Session 06:
-   1. Group 1: 24.03, Monday, 7 pm, ???
-   2. Group 2: 25.03, Tuesday, 7 pm, ???
+   1. Group 1: 24.03, Monday, 7:15 pm, 107
+   2. Group 2: 25.03, Tuesday, 7:30 pm, 120
 7. Session 07:
-   1. Group 1: 31.03, Monday, 7 pm, ???
-   2. Group 2: 01.04, Tuesday, 7 pm, ???
+   1. Group 1: 31.03, Monday, 7:15 pm, 107
+   2. Group 2: 01.04, Tuesday, 7:30 pm, 120
 8. Session 08:
-   1. Group 1: 07.04, Monday, 7 pm, ???
-   2. Group 2: 08.04, Tuesday, 7 pm, ???
+   1. Group 1: 07.04, Monday, 7:15 pm, 107
+   2. Group 2: 08.04, Tuesday, 7:30 pm, 120
 9. Session 09:
-   1. Group 1: 14.04, Monday, 7 pm, ???
-   2. Group 2: 15.04, Tuesday, 7 pm, ???
+   1. Group 1: 14.04, Monday, 7:15 pm, 107
+   2. Group 2: 15.04, Tuesday, 7:30 pm, 120
 10. Session 10:
-    1. Group 1: 28.04, Monday, 7 pm, ???
-    2. Group 2: 29.04, Tuesday, 7 pm, ???
+    1. Group 1: 28.04, Monday, 7:15 pm, 107
+    2. Group 2: 29.04, Tuesday, 7:30 pm, 120
 11. Session 11:
-    1. Group 1: 05.05, Monday, 7 pm, ???
-    2. Group 2: **06.05, Tuesday, 7 pm, ??? - Wednesday, Friday, Saturday?**
+    1. Group 1: 05.05, Monday, 7:15 pm, 107
+    2. Group 2: **06.05, ???, Wednesday, Friday, Saturday?**
 12. Session 12:
-    1. Group 1: 12.05, Monday, 7 pm, ???
-    2. Group 2: 13.05, Tuesday, 7 pm, ???
+    1. Group 1: 12.05, Monday, 7:15 pm, 107
+    2. Group 2: 13.05, Tuesday, 7:30 pm, 120
 13. Session 13:
-    1. Group 1: 19.05, Monday, 7 pm, ???
-    2. Group 2: 20.05, Tuesday, 7 pm, ???
+    1. Group 1: 19.05, Monday, 7:15 pm, 107
+    2. Group 2: 20.05, Tuesday, 7:30 pm, 120
 14. Session 14:
-    1. Group 1: **26.05, Monday, 7 pm, ??? - Wednesday, Friday, Saturday?**
-    2. Group 2: 27.05, Tuesday, 7 pm, ???
+    1. Group 1: **26.05, ???, Wednesday, Friday, Saturday?**
+    2. Group 2: 27.05, Tuesday, 7:30 pm, 120
 15. Session 15:
-    1. Group 1: 02.06, Monday, 7 pm, ???
-    2. Group 2: 03.06, Tuesday, 7 pm, ???
+    1. Group 1: 02.06, Monday, 7:15 pm, 107
+    2. Group 2: 03.06, Tuesday, 7:30 pm, 120
 
 ## Schedules
 
