@@ -4,7 +4,7 @@
 
 Please follow the instructions in one of the following two folders:
 
-1. [GuideForVisualStudioCode](./GuideForVisualStudioCode/) - for working in a local development environment (**recommended by Simo**).
+1. [GuideForVisualStudioCode](./GuideForVisualStudioCode/) - for working in a local development environment.
 2. [GuideForGoogleColab](./GuideForGoogleColab/) - for working using a remote Google Cloud session.
 
 ## Sessions with Simo
