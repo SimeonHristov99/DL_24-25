@@ -18,7 +18,7 @@ The split in groups is formal. You can come whenever it suits you.
    1. Group 1: 24.02, Monday, 7:15 pm, 107
    2. Group 2: 25.02, Tuesday, 7:30 pm, 120
 3. Session 03:
-   1. Group 1: **03.03, 05.03 Wednesday???**
+   1. Group 1: **05.03 Wednesday, 7:15 pm, 107**
    2. Group 2: 04.03, Tuesday, 7:30 pm, 120
 4. Session 04:
    1. Group 1: 10.03, Monday, 7:15 pm, 107
@@ -43,7 +43,7 @@ The split in groups is formal. You can come whenever it suits you.
     2. Group 2: 29.04, Tuesday, 7:30 pm, 120
 11. Session 11:
     1. Group 1: 05.05, Monday, 7:15 pm, 107
-    2. Group 2: **06.05, 07.05 Wednesday???**
+    2. Group 2: **07.05 Wednesday, 7:15 pm, 107**
 12. Session 12:
     1. Group 1: 12.05, Monday, 7:15 pm, 107
     2. Group 2: 13.05, Tuesday, 7:30 pm, 120
@@ -51,7 +51,7 @@ The split in groups is formal. You can come whenever it suits you.
     1. Group 1: 19.05, Monday, 7:15 pm, 107
     2. Group 2: 20.05, Tuesday, 7:30 pm, 120
 14. Session 14:
-    1. Group 1: **26.05, 28.05 Wednesday???**
+    1. Group 1: **28.05 Wednesday, 7:15 pm, 107**
     2. Group 2: 27.05, Tuesday, 7:30 pm, 120
 15. Session 15:
     1. Group 1: 02.06, Monday, 7:15 pm, 107
