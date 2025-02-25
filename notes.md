@@ -38,6 +38,15 @@
     - [Context](#context-1)
     - [Random generators](#random-generators)
   - [A note on code formatting](#a-note-on-code-formatting)
+- [Week 02 - Implementing Gradient Descent](#week-02---implementing-gradient-descent)
+  - [Backpropagation](#backpropagation)
+  - [Topological sort](#topological-sort)
+  - [The hyperbolic tangent](#the-hyperbolic-tangent)
+  - [Python OOP (Magic Methods)](#python-oop-magic-methods)
+    - [Initialization and Construction](#initialization-and-construction)
+    - [Arithmetic operators](#arithmetic-operators)
+    - [String Magic Methods](#string-magic-methods)
+    - [Comparison magic methods](#comparison-magic-methods)
 
 # Week 01 - Hello, Deep Learning. Implementing a Multilayer Perceptron
 
@@ -1171,3 +1180,280 @@ You can automatically handle the first point - let's see how to install and use 
 4. After installing, please apply it on every Python file. To do so, press `F1` and type `Format Document`. The script would then be formatted accordingly.
 
 ![w01_yapf_on_vscode_3.png](./assets/w01_yapf_on_vscode_3.png "w01_yapf_on_vscode_3.png")
+
+# Week 02 - Implementing Gradient Descent
+
+!!!
+
+- [ ] We created a chat in Messenger: DL_24-25!
+
+!!!
+
+## Backpropagation
+
+<details>
+
+<summary>How do we translate the expression "slope of a line"?</summary>
+
+Наклон на линия.
+
+</details>
+
+<details>
+
+<summary>How would you define the slope of a line?</summary>
+
+- slope (also gradient) = a number that describes the direction of the line on a plane.
+- often denoted by the letter $m$.
+
+![w02_slope.png](assets/w02_slope.png "w02_slope.png")
+
+- calculated as the ratio of the vertical change to the horizontal change ("rise over run") between two distinct points on the line:
+  - a 45° rising line has slope $m = 1$ (tan(45°) = 1)
+  - a 45° falling line has slope $m = -1$ (tan(-45°) = -1)
+
+</details>
+
+<details>
+
+<summary>What is the sign of the slope of an increasing line going up from left to right?</summary>
+
+Positive ($m > 0$).
+
+</details>
+
+<details>
+
+<summary>What is the sign of the slope of a decreasing line going down from left to right?</summary>
+
+Negative ($m < 0$).
+
+</details>
+
+<details>
+
+<summary>What is the slope of a horizontal line?</summary>
+
+$0$.
+
+</details>
+
+<details>
+
+<summary>What is the slope of a vertical line?</summary>
+
+A vertical line would lead to a $0$ in the denominator, so the slope can be regarder as `undefined` or `infinite`.
+
+</details>
+
+<details>
+
+<summary>What is the steepness of a line?</summary>
+
+- The absolute value of its slope:
+  - greater absolute value indicates a steeper line.
+
+</details>
+
+<details>
+
+<summary>Suppose a line runs through two points: P = (1, 2) and Q = (13, 8). What is its slope, direction and level of steepness?</summary>
+
+$dy = 8 - 2 = 6$
+$dx = 13 - 1 = 12$
+$m = \frac{dy}{dx} = \frac{6}{12} = \frac{1}{2} = 0.5$
+
+Direction: $0.5 > 0$ => up
+Steepness: $0 < 0.5 < 1$ => not very steep (less steep than a 45° rising line)
+
+</details>
+
+<details>
+
+<summary>Suppose a line runs through two points: P = (4, 15) and Q = (3, 21). What is its slope, direction and level of steepness?</summary>
+
+$dy = 21 - 15 = 6$
+$dx = 3 - 4 = -1$
+$m = \frac{dy}{dx} = \frac{6}{-1} = -6$
+
+Direction: $-6 < 0$ => down
+Steepness: $|-6| = 6 > 1$ => steep
+
+</details>
+
+<details>
+
+<summary>What is the link between "slope" and "derivative"?</summary>
+
+- For non-linear functions, the rate of change varies along the curve.
+- The derivative of the function at a point
+$=$ The slope of the line, tangent to the curve at the point
+$=$ The rate of change of the function at that point
+
+![w02_slop_der_connection.png](assets/w02_slop_der_connection.png "w02_slop_der_connection.png")
+
+Formula for slope:
+
+$m = \frac{dy}{dx}$
+
+Formula for derivative:
+
+${\displaystyle L=\lim _{eps\to 0}{\frac {f(x+eps)-f(x)}{eps}}}$
+
+it's the same formula as for the slope, only here the change in $x$ is infinitesimally small.
+
+For example, let $f$ be the squaring function: ${\displaystyle f(x)=x^{2}}$. Then the derivative is:
+
+$$\frac{f(x+eps) - f(x)}{eps} = \frac{(x+eps)^2 - x^2}{eps} = \frac{x^2 + 2xeps + eps^2 - x^2}{eps} = 2x + eps$$
+
+The division in the last step is valid as long as $eps \neq 0$. The closer $eps$ is to $0$, the closer this expression becomes to the value $2x$. The limit exists, and for every input $x$ the limit is $2x$. So, the derivative of the squaring function is the doubling function: ${\displaystyle f'(x)=2x}$.
+
+</details>
+
+<details>
+
+<summary>So, what added value does the derivative have?</summary>
+
+**It tells us by how much the value of a function increases when we *increase* its input by a tiny bit.**
+
+Do we remember the below diagram?
+
+![w01_multiplier_loss_viz.png](assets/w01_multiplier_loss_viz.png "w01_multiplier_loss_viz.png")
+
+</details>
+
+<details>
+
+<summary>What are the rules of derivatives that you can recall - write out the rule and an example of it?</summary>
+
+Recall the rules of computation [here](https://en.wikipedia.org/wiki/Derivative#Rules_of_computation).
+
+Also, recall the chain rule [here](https://en.wikipedia.org/wiki/Chain_rule).
+
+<details>
+
+<summary>What is the derivative of sin(6x)?</summary>
+
+$\frac{d}{dx}[\sin(6x)] = \cos(6x) * \frac{d}{dx}[6x] = \cos(6x) * 6 = 6\cos(6x)$
+
+See how the above corresponds with this definition:
+
+$${\displaystyle {\frac {dz}{dx}}={\frac {dz}{dy}}\cdot {\frac {dy}{dx}},}$$
+
+$z = \sin$
+$y = 6x$
+
+In other words, $x$ influences the value of $\sin$ through the value of $y=6x$.
+
+</details>
+
+</details>
+
+<details>
+
+<summary>What is backpropagation then?</summary>
+
+Backpropagation is the iterative process of calculating derivatives of the loss function with respect to every `value` node leading up to it.
+
+Rules of thumb:
+
+```text
+Start from the final child (the last node in topological order).
++ => copy gradient to parents:
+    parent1.grad = current.grad
+    parent2.grad = current.grad
+* => multiply value of other parent with current gradient:
+    parent1.grad = parent2.value * current.grad
+    parent2.grad = parent1.value * current.grad
+```
+
+Let's say we have the following computational graph and we have to see how tiny changes in the weights and biases influence the value of `L`:
+
+![w02_03_result](assets/w02_03_result.svg?raw=true "w02_03_result.png")
+
+<details>
+
+<summary>Reveal answer</summary>
+
+![w02_calculations](assets/w02_calculations.png "w02_calculations.png")
+
+End:
+
+![w02_04_result](assets/w02_04_result.svg?raw=true "w02_04_result.png")
+
+</details>
+
+</details>
+
+## Topological sort
+
+Topological ordering of a directed graph is a linear ordering of its vertices such that for every directed edge $(u,v)$ from vertex $u$ to vertex $v$, $u$ comes before $v$ in the ordering.
+
+The canonical application of topological sorting is in scheduling a sequence of jobs or tasks based on their dependencies.
+
+Two ways to sort elements in topological order are given in [Wikipedia](https://en.wikipedia.org/wiki/Topological_sorting).
+
+## The hyperbolic tangent
+
+<details>
+
+<summary>Why are activation functions needed?</summary>
+
+They introduce nonlinearity, making it possible for our network to learn non-linear transformations. Composition of matrices is a single matrix (as the matrix is a linear operation).
+
+</details>
+
+$${\displaystyle \tanh x={\frac {\sinh x}{\cosh x}}={\frac {e^{x}-e^{-x}}{e^{x}+e^{-x}}}={\frac {e^{2x}-1}{e^{2x}+1}}.}$$
+
+We observe that the `tanh` function is a shifted and stretched version of the `sigmoid`. Below, we can see its plot when the input is in the range $[-10, 10]$:
+
+![w02_tanh](assets/w02_tanh.png "w02_tanh.png")
+
+The output range of the tanh function is $(-1, 1)$ and presents a similar behavior with the `sigmoid` function. Thus, the main difference is the fact that the `tanh` function pushes the input values to $1$ and $-1$ instead of $1$ and $0$.
+
+The important difference between the two functions is the behavior of their gradient.
+
+$${\frac {d}{dx}}\sigma(x) = \sigma(x) (1 - \sigma(x))$$
+$${\frac {d}{dx}}\tanh(x) = 1 - \tanh^{2}(x)$$
+
+![w02_tanh_sigmoid_gradients](assets/w02_tanh_sigmoid_gradients.png "w02_tanh_sigmoid_gradients.png")
+
+Using the `tanh` activation function results in higher gradient values during training and higher updates in the weights of the network. So, if we want strong gradients and big steps, we should use the `tanh` activation function.
+
+Another difference is that the output of `tanh` is symmetric around zero, which could sometimes lead to faster convergence.
+
+## Python OOP (Magic Methods)
+
+### Initialization and Construction
+
+- `__init__`: To get called by the `__new__` method. This is the `constructor` function for Python classes.
+- `__new__`: To get called in an object’s instantiation (**do not use unless no other option**).
+- `__del__`: It is the destructor (**do not use unless no other option**).
+
+### Arithmetic operators
+
+- `__add__(self, other)`: Implements behavior for the `+` operator (addition).
+- `__sub__(self, other)`: Implements behavior for the `–` operator (subtraction).
+- `__mul__(self, other)`: Implements behavior for the `*` operator (multiplication).
+- `__floordiv__(self, other)`: Implements behavior for the `//` operator (floor division).
+- `__truediv__(self, other)`: Implements behavior for the `/` operator (true division).
+- `__mod__(self, other)`: Implements behavior for the `%` operator (modulus).
+- `__pow__(self, other)`: Implements behavior for the `**` operator (exponentiation).
+- `__and__(self, other)`: Implements behavior for the `&` operator (bitwise and).
+- `__or__(self, other)`: Implements behavior for the `|` operator (bitwise or).
+- `__xor__(self, other)`: Implements behavior for the `^` operator (bitwise xor).
+- `__neg__(self)`: Implements behavior for negation using the `–` operator.
+
+### String Magic Methods
+
+- `__str__(self)`: Defines behavior for when `str()` is called on an instance of your class.
+- `__repr__(self)`: To get called by built-int `repr()` method to return a machine readable representation of a type. **This method gets called when an object is passed to the `print` function.**
+
+### Comparison magic methods
+
+- `__eq__(self, other)`: Defines behavior for the equality operator, `==`.
+- `__ne__(self, other)`: Defines behavior for the inequality operator, `!=`.
+- `__lt__(self, other)`: Defines behavior for the less-than operator, `<`.
+- `__gt__(self, other)`: Defines behavior for the greater-than operator, `>`.
+- `__le__(self, other)`: Defines behavior for the less-than-or-equal-to operator, `<=`.
+- `__ge__(self, other)`: Defines behavior for the greater-than-or-equal-to operator, `>=`.
