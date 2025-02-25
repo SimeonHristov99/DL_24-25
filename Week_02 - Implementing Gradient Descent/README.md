@@ -286,7 +286,7 @@ Implement a perceptron with two inputs (for now without an activation function).
 
 Here's what the perceptron model looks like:
 
-![w11_neuron_model](../assets/w11_neuron_model.jpeg?raw=true "w11_neuron_model.jpeg")
+![w02_neuron_model](../assets/w02_neuron_model.jpeg?raw=true "w02_neuron_model.jpeg")
 
 You can see from the test case what configuration you have to use for `x1`, `x2`, `w1`, `w2` and `b`.
 
