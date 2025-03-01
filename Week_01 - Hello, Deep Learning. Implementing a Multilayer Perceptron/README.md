@@ -853,7 +853,7 @@ Extend the functionality of the previous task by adding a free-floating paramete
 
 The `bias` parameter allows the model to shift its prediction when all of its weights become `0`.
 
-Print the values the models predict. What has changed in comparison to task 5?
+Print the values the models predict. What has changed in comparison to the previous task?
 
 **Acceptance criteria:**
 
