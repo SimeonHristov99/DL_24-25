@@ -265,7 +265,9 @@ Manually do backpropagation on the generated computation graph.
 
 **Description:**
 
-Increase all values in the opposite direction of the gradient with `0.01`. Print the new value of the loss function.
+Increase all values using the gradient with `0.01` to get closer to $0$. Print the new value of the loss function.
+
+> **Note:** In the real world, you'll always have to minimize $L$ (so you'll have to subtract). However, here, because we're playing, this will not be case.
 
 **Test case:**
 
