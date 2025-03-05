@@ -47,6 +47,58 @@
     - [Arithmetic operators](#arithmetic-operators)
     - [String Magic Methods](#string-magic-methods)
     - [Comparison magic methods](#comparison-magic-methods)
+- [Week 03 - Hello, PyTorch](#week-03---hello-pytorch)
+  - [PyTorch. A deep learning framework](#pytorch-a-deep-learning-framework)
+  - [Tensors. The building blocks of networks](#tensors-the-building-blocks-of-networks)
+    - [What is a tensor?](#what-is-a-tensor)
+    - [Creating tensors](#creating-tensors)
+    - [Useful attributes](#useful-attributes)
+    - [Shapes matter](#shapes-matter)
+    - [Multiplication](#multiplication)
+  - [Our first neural network using PyTorch](#our-first-neural-network-using-pytorch)
+  - [Stacking layers with `nn.Sequential()`](#stacking-layers-with-nnsequential)
+  - [Checkpoint](#checkpoint-1)
+  - [Stacked linear transformations is still just one big linear transformation](#stacked-linear-transformations-is-still-just-one-big-linear-transformation)
+  - [Sigmoid in PyTorch](#sigmoid-in-pytorch)
+    - [Individually](#individually)
+    - [As part of a network](#as-part-of-a-network)
+  - [Softmax](#softmax)
+  - [Checkpoint](#checkpoint-2)
+  - [Training a network](#training-a-network)
+  - [Cross-entropy loss in PyTorch](#cross-entropy-loss-in-pytorch)
+  - [Minimizing the loss](#minimizing-the-loss)
+    - [Backpropagation](#backpropagation-1)
+    - [Optimizers](#optimizers)
+  - [Putting it all together. Training a neural network](#putting-it-all-together-training-a-neural-network)
+  - [Creating dataset and dataloader](#creating-dataset-and-dataloader)
+  - [Gradients of the sigmoid and softmax functions](#gradients-of-the-sigmoid-and-softmax-functions)
+  - [Introducing the **Re**ctified **L**inear **U**nit (`ReLU`)](#introducing-the-rectified-linear-unit-relu)
+  - [Introducing Leaky ReLU](#introducing-leaky-relu)
+  - [Counting the number of parameters](#counting-the-number-of-parameters)
+    - [Layer naming conventions](#layer-naming-conventions)
+    - [PyTorch's `numel` method](#pytorchs-numel-method)
+    - [Checkpoint](#checkpoint-3)
+  - [Learning rate and momentum](#learning-rate-and-momentum)
+    - [Optimal learning rate](#optimal-learning-rate)
+    - [Optimal momentum](#optimal-momentum)
+  - [Layer initialization](#layer-initialization)
+  - [Transfer learning](#transfer-learning)
+    - [The goal](#the-goal)
+    - [Fine-tuning](#fine-tuning)
+    - [Checkpoint](#checkpoint-4)
+  - [The Water Potability Dataset](#the-water-potability-dataset)
+  - [Evaluating a model on a classification task](#evaluating-a-model-on-a-classification-task)
+  - [Calculating validation loss](#calculating-validation-loss)
+  - [The Bias-Variance Tradeoff](#the-bias-variance-tradeoff)
+  - [Calculating accracy with `torchmetrics`](#calculating-accracy-with-torchmetrics)
+  - [Fighting overfitting](#fighting-overfitting)
+  - [Using a `Dropout` layer](#using-a-dropout-layer)
+  - [Weight decay](#weight-decay)
+  - [Data augmentation](#data-augmentation)
+  - [Steps to maximize model performance](#steps-to-maximize-model-performance)
+    - [Step 1: overfit the training set](#step-1-overfit-the-training-set)
+    - [Step 2: reduce overfitting](#step-2-reduce-overfitting)
+    - [Step 3: fine-tune hyperparameters](#step-3-fine-tune-hyperparameters)
 
 # Week 01 - Hello, Deep Learning. Implementing a Multilayer Perceptron
 
@@ -1457,3 +1509,1312 @@ Another difference is that the output of `tanh` is symmetric around zero, which 
 - `__gt__(self, other)`: Defines behavior for the greater-than operator, `>`.
 - `__le__(self, other)`: Defines behavior for the less-than-or-equal-to operator, `<=`.
 - `__ge__(self, other)`: Defines behavior for the greater-than-or-equal-to operator, `>=`.
+
+# Week 03 - Hello, PyTorch
+
+## PyTorch. A deep learning framework
+
+<details>
+
+<summary>Having done everything until now, what's the biggest differentiating factor between machine learning algorithms and deep learning algorithms?</summary>
+
+Machine learning relies on **hand-crafted** feature engineering.
+
+Deep learning enable **automatic** feature engineering from raw data. Automatic feature engineering is also known as **representation learning**.
+
+</details>
+
+<details>
+
+<summary>Have you used PyTorch before? What problems did it help you solve?</summary>
+
+PyTorch:
+
+- is one of the most popular deep learning frameworks;
+- is the framework used in many published deep learning papers;
+- is intuitive and user-friendly;
+- has much in common with NumPy;
+- has a really good documentation. Check it out [here](https://pytorch.org/).
+
+Be sure to update your virtual environment (if you haven't done so already): `pip install -Ur requirements.txt`.
+
+</details>
+
+## Tensors. The building blocks of networks
+
+### What is a tensor?
+
+A wrapper around an **n-dimensional NumPy array**, i.e. a class that has extended functionality (e.g. automatic backpropagation).
+
+![w03_tensor_meme](assets/w03_tensor_meme.png "w03_tensor_meme.png")
+
+### Creating tensors
+
+**From a Python list:**
+
+```python
+import torch
+xs = [[1, 2, 3], [4, 5, 6]]
+tensor = torch.tensor(xs)
+tensor
+```
+
+```console
+tensor([[1, 2, 3],
+        [4, 5, 6]])
+```
+
+```python
+type(tensor)
+```
+
+```console
+<class 'torch.Tensor'>
+```
+
+**From a NumPy array:**
+
+```python
+import numpy as np
+import torch
+np_array = np.array([1, 2, 3])
+np_tensor = torch.from_numpy(np_array)
+np_tensor
+```
+
+```console
+tensor([1, 2, 3])
+```
+
+### Useful attributes
+
+```python
+import torch
+xs = [[1, 2, 3], [4, 5, 6]]
+tensor = torch.tensor(xs)
+tensor.shape, tensor.dtype
+```
+
+```console
+(torch.Size([2, 3]), torch.int64)
+```
+
+- Deep learning often requires a GPU, which, compared to a CPU can offer:
+  - parallel computing capabilities;
+  - faster training times.
+- To see on which device the Tensor is currently sitting it, we can use the `.device` attribute:
+
+```python
+tensor.device
+```
+
+```console
+device(type='cpu')
+```
+
+### Shapes matter
+
+**Compatible:**
+
+```python
+a = torch.tensor([
+    [1, 1],
+    [2, 2],
+])
+b = torch.tensor([
+    [2, 2],
+    [3, 3],
+])
+
+a + b
+```
+
+```console
+tensor([[3, 3],
+        [5, 5]])
+```
+
+**Incompatible:**
+
+```python
+a = torch.tensor([
+    [1, 1],
+    [2, 2],
+])
+b = torch.tensor([
+    [2, 2, 4],
+    [3, 3, 4],
+])
+
+a + b
+```
+
+```console
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+RuntimeError: The size of tensor a (2) must match the size of tensor b (3) at non-singleton dimension 1
+```
+
+### Multiplication
+
+<details>
+
+<summary>What is broadcasting?</summary>
+
+An implicit operation that copies an element (or a group of elements) `n` times along a dimension.
+
+</details>
+
+Element-wise multiplication can be done with the operator `*`:
+
+```python
+a = torch.tensor([
+    [1, 1],
+    [2, 2],
+])
+b = torch.tensor([
+    [2, 2],
+    [3, 3],
+])
+
+a * b
+```
+
+```console
+tensor([[2, 2],
+        [6, 6]])
+```
+
+We can do matrix multiplication with the function `torch.matmul`:
+
+```python
+# vector x vector
+tensor1 = torch.randn(3)
+tensor2 = torch.randn(3)
+res = torch.matmul(tensor1, tensor2)
+res, res.size()
+
+# matrix x vector
+tensor1 = torch.randn(3, 4)
+tensor2 = torch.randn(4)
+torch.matmul(tensor1, tensor2).size()
+
+# batched matrix x broadcasted vector
+tensor1 = torch.randn(10, 3, 4)
+tensor2 = torch.randn(4)
+torch.matmul(tensor1, tensor2).size()
+
+# batched matrix x batched matrix
+tensor1 = torch.randn(10, 3, 4)
+tensor2 = torch.randn(10, 4, 5)
+torch.matmul(tensor1, tensor2).size()
+
+# batched matrix x broadcasted matrix
+tensor1 = torch.randn(10, 3, 4)
+tensor2 = torch.randn(4, 5)
+torch.matmul(tensor1, tensor2).size()
+```
+
+```console
+(tensor(0.7871), torch.Size([]))
+torch.Size([3])
+torch.Size([10, 3])
+torch.Size([10, 3, 5])
+torch.Size([10, 3, 5])
+```
+
+Check other built-in functions [here](https://pytorch.org/docs/main/torch.html).
+
+## Our first neural network using PyTorch
+
+We'll begin by building a basic, two-layer network with no hidden layers.
+
+![w03_first_nn.png](assets/w03_first_nn.png "w03_first_nn.png")
+
+All functions and classes related to creating and managing neural networks can be explored in the [`torch.nn` module](https://pytorch.org/docs/stable/nn.html).
+
+```python
+import torch
+import torch.nn as nn
+
+linear_layer = nn.Linear(in_features=3, out_features=2)
+
+user_data_tensor = torch.tensor([[0.3471, 0.4547, -0.2356]])
+output = linear_layer(user_data_tensor)
+output
+```
+
+```console
+tensor([[-0.7252,  0.3228]], grad_fn=<AddmmBackward0>)
+```
+
+[Linear layer](https://pytorch.org/docs/stable/generated/torch.nn.Linear.html#linear):
+
+- `in_features` (`int`) – size of each input sample;
+- `out_features` (`int`) – size of each output sample;
+- `bias` (`bool`) – If set to `False`, the layer will not learn an additive bias. Default: `True`.
+- each linear layer has a `.weight` attribute:
+
+```python
+linear_layer.weight
+```
+
+```console
+Parameter containing:
+tensor([[-0.1971, -0.4996,  0.1233],
+        [ 0.2203,  0.3508, -0.1402]], requires_grad=True)
+```
+
+- and a `.bias` attribute (by default):
+
+```python
+linear_layer.bias
+```
+
+```console
+Parameter containing:
+tensor([-0.4006,  0.0538], requires_grad=True)
+```
+
+For input $X$, weights $W_0$ and bias $b_0$, the linear layers performs:
+
+$$y_0 = W_0 \cdot X + b_0$$
+
+![w03_linear_op.png](assets/w03_linear_op.png "w03_linear_op.png")
+
+- in the example above, the linear layer is used to transform the output from shape $(1, 3)$ to shape $(1, 2)$. We refer to $1$ as the **batch size**: how many observations were passed at once to the neural network.
+- networks with only linear layers are called **fully connected**: each neuron in a layer is connected to each neuron in the next layer.
+
+## Stacking layers with `nn.Sequential()`
+
+We can easily compose multiple layers using the [`Sequential` class](https://pytorch.org/docs/stable/generated/torch.nn.Sequential.html#sequential):
+
+```python
+model = nn.Sequential(
+    nn.Linear(10, 18),
+    nn.Linear(18, 20),
+    nn.Linear(20, 5),
+)
+model
+```
+
+```console
+Sequential(
+  (0): Linear(in_features=10, out_features=18, bias=True)
+  (1): Linear(in_features=18, out_features=20, bias=True)
+  (2): Linear(in_features=20, out_features=5, bias=True)
+)
+```
+
+- Input is passed through the linear layers automatically.
+- Here's how the sizes change: **Input 10** => output 18 => output 20 => **Output 5**.
+
+```python
+input_tensor
+```
+
+```console
+tensor([[-0.0014,  0.4038,  1.0305,  0.7521,  0.7489, -0.3968,  0.0113, -1.3844,
+          0.8705, -0.9743]])
+```
+
+```python
+output_tensor = model(input_tensor)
+output_tensor
+```
+
+```console
+tensor([[-0.2361, -0.0336, -0.3614,  0.1190,  0.0112]],
+       grad_fn=<AddmmBackward0>)
+```
+
+The output of this neural network:
+
+- is still not yet meaningful. This is because the weights and biases are initially random floating-point values.
+- is called a **logit**: non-normalized, raw network output.
+
+## Checkpoint
+
+What order should the following blocks be in, in order for the snippet to be correct:
+
+1. `nn.Sequential(`
+2. `nn.Linear(14, 3)`
+3. `)`
+4. `nn.Linear(3, 2)`
+5. `nn.Linear(20, 14)`
+6. `nn.Linear(5, 20)`
+
+<details>
+
+<summary>Reveal answer</summary>
+
+1, 6, 5, 2, 4, 3
+
+</details>
+
+## Stacked linear transformations is still just one big linear transformation
+
+Applying multiple stacked linear layers is equivalent to applying one linear layer that's their composition [[proof](https://www.3blue1brown.com/lessons/matrix-multiplication)]:
+
+![w03_matrix_composition.png](assets/w03_matrix_composition.png "w03_matrix_composition.png")
+
+<details>
+
+<summary>What is the problem with this approach?</summary>
+
+We still have a model that can represent **only linear relationships** with the input.
+
+![w03_stacked_lin_layers.png](assets/w03_stacked_lin_layers.png "w03_stacked_lin_layers.png")
+
+</details>
+
+<details>
+
+<summary>How do we fix this?</summary>
+
+We need to include a transformation (i.e. a function) that is non-linear, so that we can also model nonlinearities. Such functions are called **activation functions**.
+
+![w03_activation_fn.png](assets/w03_activation_fn.png "w03_activation_fn.png")
+
+- **Activation functions** add **non-linearity** to the network.
+- A model can learn more **complex** relationships with non-linearity.
+- `Logits` are passed to the activation functions and the results are called `activations`.
+
+</details>
+
+<details>
+
+<summary>What activations functions have you heard of?</summary>
+
+- `sigmoid`: Binary classification.
+
+![w03_sigmoid_graph.png](assets/w03_sigmoid_graph.png "w03_sigmoid_graph.png")
+
+- `softmax`: Softmax for multi-class classification.
+
+![w03_sigmoid_softmax.png](assets/w03_sigmoid_softmax.png "w03_sigmoid_softmax.png")
+
+- `relu`.
+- `tanh`.
+- etc, etc.
+
+![w03_activation_fns_grpahs.png](assets/w03_activation_fns_grpahs.png "w03_activation_fns_grpahs.png")
+</details>
+
+## Sigmoid in PyTorch
+
+### Individually
+
+**Binary classification** task:
+
+- Predict whether an animal is **1 (mammal)** or **0 (not mammal)**.
+- We take the logit: `6`.
+- Pass it to the sigmoid.
+- Obtain a value between `0` and `1` and treat it as a probability.
+
+![w03_sigmoid.png](assets/w03_sigmoid.png "w03_sigmoid.png")
+
+```python
+input_tensor = torch.tensor([[6.0]])
+sigmoid = nn.Sigmoid()
+probability = sigmoid(input_tensor)
+probability
+```
+
+```console
+tensor([[0.9975]])
+```
+
+### As part of a network
+
+Sigmoid as a last step in a network of stacked linear layers is equivalent to traditional logistic regression.
+
+```python
+model = nn.Sequential(
+    nn.Linear(6, 4),
+    nn.Linear(4, 1),
+    nn.Sigmoid(),
+)
+```
+
+## Softmax
+
+- Takes N-element vector as input and outputs vector of same size.
+- Outputs a probability distribution:
+  - each element is a probability (it's bounded between `0` and `1`).
+  - the sum of the output vector is equal to `1`.
+
+![w03_softmax_nn.png](assets/w03_softmax_nn.png "w03_softmax_nn.png")
+
+- `dim=-1` indicates softmax is applied to the input tensor's last dimension:
+
+```python
+input_tensor = torch.tensor([[4.3, 6.1, 2.3]])
+softmax = nn.Softmax(dim=-1)
+probabilities = softmax(input_tensor)
+probabilities
+```
+
+```console
+tensor([[0.1392, 0.8420, 0.0188]])
+```
+
+## Checkpoint
+
+Which of the following statements about neural networks are true? (multiple selection)
+
+A. A neural network with a single linear layer followed by a sigmoid activation is similar to a logistic regression model.
+B. A neural network can only contain two linear layers.
+C. The softmax function is widely used for multi-class classification problems.
+D. The input dimension of a linear layer must be equal to the output dimension of the previous layer.
+
+<details>
+
+<summary>Reveal answer</summary>
+
+A, C, D.
+
+</details>
+
+## Training a network
+
+<details>
+
+<summary>List out the steps of the so-called forward pass.</summary>
+
+1. Input data is passed forward or propagated through a network.
+2. Computations are performed at each layer.
+3. Outputs of each layer are passed to each subsequent layer.
+4. Output of the final layer is the prediction(s).
+
+</details>
+
+<details>
+
+<summary>List the steps that are performed in the "training loop"?</summary>
+
+1. Forward pass.
+2. Compare outputs to true values.
+3. Backpropagate to update model weights and biases.
+4. Repeat until weights and biases are tuned to produce useful outputs.
+
+</details>
+
+<details>
+
+<summary>Wait - why was the loss function needed again?</summary>
+
+It dictates how the weights and biases should be tweaked to more closely resemble the training distribution of labels.
+
+Ok - let's say that:
+
+- $y$ is a single integer (class label), e.g. $y = 0$;
+- $\hat{y}$ is a tensor (output of softmax), e.g. $[0.57492, 0.034961, 0.15669]$.
+
+<details>
+
+<summary>How do we compare an integer to a tensor when the task is classification?</summary>
+
+We one-hot encode the integer and pass both of them to the cross entropy loss function.
+
+![w03_ohe.png](assets/w03_ohe.png "w03_ohe.png")
+
+OHE in Pytorch:
+
+```python
+import torch.nn.functional as F
+F.one_hot(torch.tensor(0), num_classes=3)
+```
+
+```console
+tensor([1, 0, 0])
+```
+
+Cross entropy (multiclass):
+
+$H(p,q)\ =\ -\sum _{i}p_{i}\log q_{i}$
+
+Binary case:
+
+$H(p,q)\ =\ -\sum _{i}p_{i}\log q_{i}\ =\ -y\log {\hat {y}}-(1-y)\log(1-{\hat {y}})$
+
+</details>
+
+</details>
+
+## Cross-entropy loss in PyTorch
+
+The PyTorch implementation has built-in softmax, so it takes logits and target classes.
+
+```python
+import torch
+from torch.nn import CrossEntropyLoss
+
+scores = torch.tensor([[-0.1211,  0.1059]])
+one_hot_target = torch.tensor([[1., 0.]])
+
+criterion = CrossEntropyLoss()
+criterion(scores, one_hot_target)
+```
+
+```console
+tensor(0.8131)
+```
+
+## Minimizing the loss
+
+![w03_derivative_valley.png](assets/w03_derivative_valley.png "w03_derivative_valley.png")
+
+### Backpropagation
+
+Consider a network made of three layers, $L0$, $L1$ and $L2$:
+
+- we calculate local gradients for $L0$, $L1$ and $L2$ using backpropagation;
+- we calculate loss gradients with respect to $L2$, then use $L2$ gradients to calculate $L1$ gradients and so on.
+
+![w03_backprop.png](assets/w03_backprop.png "w03_backprop.png")
+
+PyTorch does automatic backpropagation:
+
+```python
+criterion = CrossEntropyLoss()
+loss = criterion(prediction, target)
+loss.backward() # compute the gradients
+```
+
+```python
+# Access each layer's gradients
+model[0].weight.grad, model[0].bias.grad
+model[1].weight.grad, model[1].bias.grad
+model[2].weight.grad, model[2].bias.grad
+```
+
+We can then update the model paramters.
+
+Here's how this can be done manually:
+
+```python
+lr = 0.001
+
+weight = model[0].weight
+weight_grad = model[0].weight.grad
+weight = weight - lr * weight_grad
+
+bias = model[0].bias
+bias_grad = model[0].bias.grad
+bias = bias - lr * bias_grad
+```
+
+### Optimizers
+
+In PyTorch, an **optimizer** takes care of weight updates. Different optimizers have different logic for updating model parameters (or weights) after calculation of local gradients. Some built-in optimizers include:
+
+- RMSProp;
+- Adam;
+- AdamW;
+- SGD (Stochastic Gradient Descent).
+
+They are all used in the same manner:
+
+```python
+from torch import 
+
+optimizer = optim.SGD(model.parameters(), lr=0.001)
+
+<... trainig loop ...>
+
+optimizer.zero_grad() # make the current gradients 0
+loss.backward()       # calculate the new gradients
+optimizer.step()      # update the parameters
+
+<... trainig loop ...>
+```
+
+## Putting it all together. Training a neural network
+
+<details>
+
+<summary>List the steps that would be used to train a neural network.</summary>
+
+1. Create a dataset.
+2. Create a model.
+3. Define a loss function.
+4. Define an optimizer.
+5. Run a training loop, where for each batch of samples in the dataset, we repeat:
+   1. Zeroing the graidents.
+   2. Forward pass to get predictions for the current training batch.
+   3. Calculating the loss.
+   4. Calculating gradients.
+   5. Updating model parameters.
+
+</details>
+
+<details>
+
+<summary>What metrics can we use for regressions problems?</summary>
+
+The mean squared error loss:
+
+$$MSE = \frac{1}{N} * \sum(y - \hat{y})^2$$
+
+In PyTorch:
+
+```python
+criterion = nn.MSELoss()
+loss = criterion(prediction, target)
+print(loss.item())
+```
+
+</details>
+
+## Creating dataset and dataloader
+
+- `TensorDataset`: acts as a wrapper around our features and targets.
+- `DataLoader`: splits the dataset into batches.
+
+```python
+dataset = TensorDataset(torch.tensor(features).float(), torch.tensor(target).float()) # has to be the same datatype as the parameters of the model
+input_sample, label_sample = dataset[0]
+
+dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
+for batch_inputs, batch_labels in dataloader:
+    print(f'{batch_inputs=}')
+    print(f'{batch_labels=}')
+```
+
+## Gradients of the sigmoid and softmax functions
+
+![w03_sigmoid_gradient.png](assets/w03_sigmoid_gradient.png "w03_sigmoid_gradient.png")
+
+Gradients:
+
+- Approach $0$ for low and high values of $x$.
+- The far left (value $0$) and far right (value $1$) regions are known as **saturation regions** because the gradient/derivative there is too small, slowing down learning.
+  - Learning slows down when the gradient is small, because the weight upgrade of the network at each iteration is directly proportional to the gradient magnitude.
+  - The sooner the learning starts to slow down, the less the first layers are going to learn. This is known as **the vanishing gradient problem**.
+
+## Introducing the **Re**ctified **L**inear **U**nit (`ReLU`)
+
+![w03_relu_gradient.png](assets/w03_relu_gradient.png "w03_relu_gradient.png")
+
+<details>
+
+<summary>Looking at the graph, what is the function that ReLU applies?</summary>
+
+$f(x) = max(x, 0)$
+
+In PyTorch:
+
+```python
+relu = nn.ReLU()
+```
+
+</details>
+
+<details>
+
+<summary>What is the output for positive input?</summary>
+
+The output is equal to the input.
+
+</details>
+
+<details>
+
+<summary>What is the output for negative inputs?</summary>
+
+$0$.
+
+</details>
+
+<details>
+
+<summary>Why does ReLU solve the vanishing gradient problem?</summary>
+
+Because it has a deriviative value of $1$ for large positive values as well.
+
+</details>
+
+<details>
+
+<summary>However, what problem does ReLU introduce that is not present when using sigmoid?</summary>
+
+The dying neuron problem.
+
+A large gradient flowing through a ReLU neuron could cause the bias to update in such a way that it becomes very negative, which in turn leads to the neuron outputting only negative values.
+
+This would mean that the derivative will be $0$ and in the future the weights and bias will not be updated.
+
+It acts like permanent brain damage.
+
+Note:
+
+- In practice, dead ReLUs connections are not a **major** issue.
+- Most deep learning networks can still learn an adequate representations with only sub-selection of possible connections.
+  - This is possible because deep learning networks are highly over-parameterized.
+- The computational effectiveness and efficiency of ReLUs still make them one of the best options currently available (even with the possible drawbacks of dead neurons).
+
+</details>
+
+<details>
+
+<summary>How can we solve this?</summary>
+
+## Introducing Leaky ReLU
+
+![w03_leakyrelu_gradient.png](assets/w03_leakyrelu_gradient.png "w03_leakyrelu_gradient.png")
+
+- Same behavior for positive inputs.
+- Negative inputs get multiplied by a small coefficient: `negative_slope` (defaulted to $0.01$).
+- The gradients for negative inputs are very small, but never $0$.
+
+In PyTorch:
+
+```python
+leaky_relu = nn.LeakyReLU(negative_slope=0.05)
+```
+
+</details>
+
+## Counting the number of parameters
+
+### Layer naming conventions
+
+![w03_layer_names.png](assets/w03_layer_names.png "w03_layer_names.png")
+
+<details>
+
+<summary>What is the dependency between the number of neurons in the input layer and the user data?</summary>
+
+The number of neurons in the input layer depends on the number of features in a single observation.
+
+</details>
+
+<details>
+
+<summary>What is the dependency between the number of neurons in the output layer and the user data?</summary>
+
+The number of neurons in the output layer depends on the number of classes that can be assigned.
+
+<details>
+
+<summary>What if it's a regression problem?</summary>
+
+Then the output layer is a single neuron.
+
+So, we get the following architecture:
+
+```python
+model = nn.Sequential(nn.Linear(n_features, 8),
+                      nn.Linear(8, 4),
+                      nn.Linear(4, n_classes))
+```
+
+</details>
+
+</details>
+
+### PyTorch's `numel` method
+
+- We could vary the number of neurons in the hidden layers (and the amount of hidden layers).
+- However, we should remember that increasing the number of hidden layers = increasing the number of parameters = increasing the **model capacity**.
+
+Given the followin model:
+
+```python
+n_features = 8
+n_classes = 2
+
+model = nn.Sequential(nn.Linear(n_features, 4),
+                      nn.Linear(4, n_classes))
+```
+
+We can manually count the number of parameters:
+
+- first layer has $4$ neurons, each connected to the $8$ neurons in the input layer and $1$ bias $= 36$ parameters.
+- second layer has $2$ neurons, each connected to the $4$ neurons in the input layer and $1$ bias $= 10$ parameters.
+- Total: $46$ learnable parameters.
+
+In PyTorch, we can use the `numel` method to get the number of parameters of a neuron:
+
+```python
+total = 0
+for parameter in model.parameters():
+    total += parameter.numel()
+print(total)
+```
+
+### Checkpoint
+
+Calculate manually the number of parameters of the model below. How many does it have?
+
+```python
+model = nn.Sequential(nn.Linear(16, 4),
+                      nn.Linear(4, 2),
+                      nn.Linear(2, 1))
+```
+
+<details>
+
+<summary>Reveal answer</summary>
+
+$81$.
+
+We can confirm it:
+
+```python
+model = nn.Sequential(nn.Linear(16, 4),
+                      nn.Linear(4, 2),
+                      nn.Linear(2, 1))
+
+print(sum(param.numel() for param in model.parameters()))
+```
+
+</details>
+
+## Learning rate and momentum
+
+- Training a neural network = solving an **optimization problem**.
+- Most algorithms have two parameters:
+  - **learning rate**: controls the step size.
+  - **momentum**: controls the inertia of the optimizer.
+- Poor choice of values can lead to:
+  - long training times.
+  - bad overall performance.
+
+### Optimal learning rate
+
+Optimal learning rates vary between `1` and `0.0001`:
+
+![w03_optimal_lr.png](assets/w03_optimal_lr.png "w03_optimal_lr.png")
+
+Small learning rate = more training time:
+
+![w03_small_lr.png](assets/w03_small_lr.png "w03_small_lr.png")
+
+Big learning rate = oscilation:
+
+![w03_big_lr.png](assets/w03_big_lr.png "w03_big_lr.png")
+
+### Optimal momentum
+
+Momentum is the functionality of an optimizer to continue making large steps when the previous steps were large. Thus, steps become small when we're in a valley.
+
+![w03_momentum_formula.png](assets/w03_momentum_formula.png "w03_momentum_formula.png")
+
+Reference taken from [this](https://arxiv.org/pdf/1609.04747) paper.
+
+No momentum (`momentum=0`) = stuck in local minimum:
+
+![w03_no_momentum.png](assets/w03_no_momentum.png "w03_no_momentum.png")
+
+Optimal momentum values vary between `0.5` and `0.99`:
+
+![w03_with_momentum.png](assets/w03_with_momentum.png "w03_with_momentum.png")
+
+## Layer initialization
+
+Often it can happen that the initial loss of the network is very high and then rather fast it decreases to a valley type of graph:
+
+![w03_high_loss.png](assets/w03_high_loss.png "w03_high_loss.png")
+
+This happens because the logits that come out in the very first iteration are:
+
+- very high or very low numbers;
+- the difference between each of them is very high, meaning that they are not very close to one another in terms of value.
+
+We can solve this by making the logits closer together:
+
+- be it around `0`;
+- or just making them equal to each other.
+
+This is because the softmax would then treat them as probabilities and the more "clustered" their values are, the more uniform the output distribution will be.
+
+We can solve this by normalizing the weight's values.
+
+Instead of writing this:
+
+```python
+import torch.nn as nn
+layer = nn.Linear(64, 128)
+print(layer.weight.min(), layer.weight.max())
+```
+
+```console
+tensor(-0.1250, grad_fn=<MinBackward1>) tensor(0.1250, grad_fn=<MaxBackward1>)
+```
+
+We can write this:
+
+```python
+import torch.nn as nn
+layer = nn.Linear(64, 128)
+nn.init.uniform_(layer.weight)
+print(layer.weight.min(), layer.weight.max())
+```
+
+```console
+tensor(3.0339e-05, grad_fn=<MinBackward1>) tensor(1.0000, grad_fn=<MaxBackward1>)
+```
+
+## Transfer learning
+
+### The goal
+
+<details>
+
+<summary>What have you heard about transfer learning?</summary>
+
+Reusing a model trained on task for accomplishing a second similar task.
+
+</details>
+
+<details>
+
+<summary>What is the added value?</summary>
+
+- Faster training (fewer epochs).
+- Don't need as large amount of data as would be needed otherwise.
+- Don't need as many resources as would be needed otherwise.
+
+</details>
+
+<details>
+
+<summary>Can we think of some examples?</summary>
+
+We trained a model on a dataset of data scientist salaries in the US and want to get a new model on a smaller dataset of salaries in Europe.
+
+</details>
+
+### Fine-tuning
+
+- A way to do transfer learning.
+- Smaller learning rate.
+- Not every layer is trained (some of the layers are kept **frozen**).
+
+<details>
+
+<summary>What does it mean to freeze a layer?</summary>
+
+No updates are done to them (gradient for them is $0$).
+
+</details>
+
+<details>
+
+<summary>Which layers should be frozen?</summary>
+
+The early ones. The goal is to use (and change) the layers closer to the output layer.
+
+In PyTorch:
+
+```python
+import torch.nn as nn
+
+model = nn.Sequential(nn.Linear(64, 128),
+                      nn.Linear(128, 256))
+
+for name, param in model.named_parameters():
+    if name == '0.weight':
+        param.requires_grad = False
+```
+
+</details>
+
+### Checkpoint
+
+Order the sentences to follow the fine-tuning process.
+
+1. Train with a smaller learning rate.
+2. Freeze (or not) some of the layers in the model.
+3. Load pre-trained weights.
+4. Find a model trained on a similar task.
+5. Look at the loss values and see if the learning rate needs to be adjusted.
+
+<details>
+
+<summary>Reveal answer</summary>
+
+4, 3, 2, 1, 5
+
+</details>
+
+## The Water Potability Dataset
+
+- Task: classify a water sample as potable or drinkable (`1` or `0`) based on its chemical characteristics.
+- All features have been normalized to between zero and one. Two files are present in our `DATA` folder: `water_train.csv` and `water_test.csv`. Here's how both of them look like:
+
+![w03_water_potability_datasets.png](assets/w03_water_potability_datasets.png "w03_water_potability_datasets.png")
+
+## Evaluating a model on a classification task
+
+Let's recall the steps for training a neural network:
+
+1. Create a dataset.
+2. Create a model.
+3. Define a loss function.
+4. Define an optimizer.
+5. Run a training loop, where for each batch of samples in the dataset, we repeat:
+   1. Zeroing the graidents.
+   2. Forward pass to get predictions for the current training batch.
+   3. Calculating the loss.
+   4. Calculating gradients.
+   5. Updating model parameters.
+
+<details>
+
+<summary>Could we elaborate a bit more on point 5 - what dataset are we talking about?</summary>
+
+When training neural networks in a supervised fashion we typically break down all the labeled data we have into three sets:
+
+| Name       | Percent of data | Description                                                                                                 |
+| ---------- | --------------- | ----------------------------------------------------------------------------------------------------------- |
+| Train      | 70-90           | Learn optimal values for model parameters                                                                   |
+| Validation | 5-15            | Hyperparameter tuning (batch size, learning rate, number of layers, number of neurons, type of layers, etc) |
+| Test       | 5-15            | Only used once to calculate final performance metrics                                                       |
+
+</details>
+
+<details>
+
+<summary>What classification metrics have you heard of?</summary>
+
+- Accuracy: percentage of correctly classified examples.
+- Recall: from all true examples, what percentage did our model find.
+- Precision: from all the examples are model labelled as true, what percentage of the examples are actually true.
+- F1: harmonic mean of precision and recall.
+
+![w03_precision_recall.png](assets/w03_precision_recall.png "w03_precision_recall.png")
+
+<details>
+
+<summary>When should we use accuracy?</summary>
+
+Only when all of the classes are perfectly balanced.
+
+</details>
+
+<details>
+
+<summary>What metic should we use when we have an unbalanced target label?</summary>
+
+F1-score.
+
+</details>
+
+</details>
+
+## Calculating validation loss
+
+After each training epoch we iterate over the validation set and calculate the average validation loss.
+
+It's important to put the model in an evaluation mode, so no gradients get calculated and all layers are used as if they were processing user data.
+
+```python
+validation_loss = 0.0
+model.eval()
+with torch.no_grad():
+    for sample, label in validation_loader:
+        model(sample)
+        loss = criterion(outputs, labels)
+        validation_loss += loss.item()
+epoch_validation_loss = validation_loss / len(validation_loader)
+model.train()
+```
+
+## The Bias-Variance Tradeoff
+
+<details>
+
+<summary>What have you heard about it?</summary>
+
+It can be used to determine whether a model has reached its best capabilities, is underfitting or is overfitting.
+
+![w03_bias_variance.png](assets/w03_bias_variance.png "w03_bias_variance.png")
+
+<details>
+
+<summary>What is underfitting?</summary>
+
+High training loss and high validation loss.
+
+</details>
+
+<details>
+
+<summary>What is overfitting?</summary>
+
+Low training loss and high validation loss.
+
+</details>
+
+</details>
+
+## Calculating accracy with [`torchmetrics`](https://lightning.ai/docs/torchmetrics/stable//index.html)
+
+The package `torchmetrics` provides implementations of popular classification and regression metrics:
+
+- [accuracy](https://lightning.ai/docs/torchmetrics/stable/classification/accuracy.html#id4).
+- [recall](https://lightning.ai/docs/torchmetrics/stable/classification/recall.html#id4).
+- [precision](https://lightning.ai/docs/torchmetrics/stable/classification/precision.html#id4).
+- [f1-score](https://lightning.ai/docs/torchmetrics/stable/classification/f1_score.html#f-1-score).
+- [mean squared error](https://lightning.ai/docs/torchmetrics/stable/regression/mean_squared_error.html#mean-squared-error-mse).
+
+```python
+import torchmetrics
+
+metric = torchmetrics.Accuracy(task='multiclass', num_classes=3)
+for samples, labels in dataloader:
+    outputs = model(samples)
+    acc = metric(outputs, labels.argmax(dim=-1))
+acc = metric.compute()
+print(f'Accuracy on all data: {acc}')
+metric.reset()
+```
+
+## Fighting overfitting
+
+<details>
+
+<summary>What is the result of overfitting?</summary>
+
+The model does not generalize to unseen data.
+
+</details>
+
+<details>
+
+<summary>What are the causes of overfitting?</summary>
+
+| Problem                     | Solution                              |
+| --------------------------- | ------------------------------------- |
+| Model has too much capacity | Reduce model size / Add dropout       |
+| Weights are too large       | Use weight decay                      |
+| Dataset is not large enough | Get more data / Use data augmentation |
+
+</details>
+
+## Using a [`Dropout` layer](https://pytorch.org/docs/stable/generated/torch.nn.Dropout.html#dropout)
+
+- During training, randomly zeroes some of the elements of the input tensor with probability `p`.
+  - This would mean that the neuron did not "fire" / did not get triggered.
+- Add after the activation function.
+- Behaves differently during training and evaluation/prediction:
+  - we must remember to switch modes using `model.train()` and `model.eval()`.
+
+```python
+nn.Sequential(
+    nn.Linear(n_features, n_classes),
+    nn.ReLU(),
+    nn.Dropout(p=0.8))
+```
+
+We can try it out:
+
+```python
+import numpy as np
+import torch
+from torch import nn
+
+m = nn.Dropout(p=0.2)
+
+inp = torch.randn(20, 16)
+(m(inp).view(-1).numpy() == 0).mean()
+```
+
+```console
+np.float64(0.1925)
+```
+
+## Weight decay
+
+```python
+optimizer = optim.SGD(model.parameters(), lr=1e-3, weight_decay=1e-4)
+```
+
+- Weight decay adds `L2` penalty to loss function to discourage large weights and biases.
+  - Effectively, this is done by increasing the gradient with a `weight_decay` fraction of the weights:
+
+```python
+d_p = p.grad.data
+if weight_decay != 0:
+    d_p.add_(weight_decay, p.data)
+```
+
+- Optimizer's `weight_decay` parameter takes values between `0` and `1`.
+  - Typically small value, e.g. `1e-3`.
+- The higher the parameter, the stronger the regularization, thus the less likely the model is to overgit.
+- More on the topic [in this post](https://discuss.pytorch.org/t/how-pytorch-implement-weight-decay/8436/3).
+
+> **Note:** Using strong regularization, results in slower training times.
+
+## Data augmentation
+
+![w03_data_augmentation.png](assets/w03_data_augmentation.png "w03_data_augmentation.png")
+
+- End result: Increased size and diversity of the training set.
+- We'll discuss different pros and cons of this strategy in the upcoming weeks.
+
+## Steps to maximize model performance
+
+1. Overfit the training set (rarely possible to a full extend).
+   - We ensure that the problem is solvable using deep learning.
+   - We set a baseline to aim for with the validation set.
+2. Reduce overfitting.
+   - Improve performance on the validation set.
+3. Fine-tune hyperparameters.
+
+### Step 1: overfit the training set
+
+If this is not possible to do with the full training set due to memory constraints, modify the training loop to overfit a `batch_size` of points (`batch_size=1` is also a possibility).
+
+```python
+features, labels = next(iter(trainloader))
+for i in range(1e3):
+    outputs = model(features)
+    loss = criterion(outputs, labels)
+    loss.backward()
+    optimizer.step()
+```
+
+- Should reach accuracy (or your choice of metric) `1.0` and loss close (or equal) to `0.0`.
+- This also helps with finding bugs in the code or in the data.
+- Use the default value for the learning rate.
+- Deliverables:
+    1. Large enough model.
+    2. Minimum training loss.
+
+### Step 2: reduce overfitting
+
+- Start to keep track of:
+  - training loss;
+  - training metric values;
+  - validation loss;
+  - validation metric values.
+- Experiment with:
+  - Dropout;
+  - Data augmentation;
+  - Weight decay;
+  - Reducing the model capacity.
+- Keep track of each hyperparamter.
+- Deliverables:
+  1. Maximum metric value on the validation set.
+  2. Minimum loss on the validation set.
+  3. Plots validating model performance.
+
+![w03_plots.png](assets/w03_plots.png "w03_plots.png")
+
+Be careful to not increase the training loss and reduce the training metric by too much (overfitting-reduction strategies often lead to this):
+
+![w03_too_much_regularization.png](assets/w03_too_much_regularization.png "w03_too_much_regularization.png")
+
+### Step 3: fine-tune hyperparameters
+
+Grid search:
+
+![w03_grid_search_example.png](assets/w03_grid_search_example.png "w03_grid_search_example.png")
+
+Random search:
+
+![w03_random_search_example.png](assets/w03_random_search_example.png "w03_random_search_example.png")
