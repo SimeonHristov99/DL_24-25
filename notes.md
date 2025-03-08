@@ -1586,6 +1586,12 @@ np_tensor
 tensor([1, 2, 3])
 ```
 
+**Creating a tensor via `torch.tensor` vs `torch.Tensor`. When to choose which?**
+
+- `torch.tensor` infers the data type automatically.
+- `torch.Tensor` returns a `FloatTensor`.
+- Advice: Stick to `torch.tensor`.
+
 ### Useful attributes
 
 ```python
