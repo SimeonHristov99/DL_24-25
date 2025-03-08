@@ -172,7 +172,7 @@ Last label: tensor([0.4969], dtype=torch.float64)
 
 **Description:**
 
-Load the `ds_salaries.csv` dataset using [`pandas`](https://pandas.pydata.org/). It contains salaries of data scientists. We'll use a subset of the features to predict salaries of new observations - `salary_in_usd`. Use the features: `experience_level`, `employment_type`, `remote_ratio` and `company_size` to create a `Dataset` and `DataLoader` objects. Normalize the features and the target and encode the categorical variables using `sklearn`.
+Load the `ds_salaries.csv` (present in our `DATA` folder in the root of this repository) dataset using [`pandas`](https://pandas.pydata.org/). It contains salaries of data scientists. We'll use a subset of the features to predict salaries of new observations - `salary_in_usd`. Use the features: `experience_level`, `employment_type`, `remote_ratio` and `company_size` to create a `Dataset` and `DataLoader` objects. Normalize the features and the target and encode the categorical variables using `sklearn`.
 
 Create and train a neural network with however many layers you decide (it does not have to be deep - even two layers will be perfectly fine). Use the full data for training.
 
