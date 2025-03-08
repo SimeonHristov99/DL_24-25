@@ -248,14 +248,14 @@ python task09.py
 
 **Description:**
 
-Manually do backpropagation on the generated computation graph.
+Manually do backpropagation on the generated computation graph by setting `node.grad = your_calculated_value` for all the nodes and write in comments before each assignment the calculation you did.
 
 ![w02_03_result](../assets/w02_03_result.svg?raw=true "w02_03_result.png")
 
 **Acceptance criteria:**
 
 1. The process through which the values for the gradients are calculated is shown in comments.
-2. A function `manual_der` is defined that helps verify the calculations.
+2. A function `manual_der` is defined outside of the class `Value` that helps verify the manual calculations. It should calculate the derivative of $L$ with respect to a given node using `epsilon = 0.001` and the result should equal `node.grad` calculated with backpropagation.
 
 **Test case:**
 
