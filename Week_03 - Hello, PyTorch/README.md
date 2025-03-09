@@ -512,7 +512,7 @@ tensor([0.5153], grad_fn=<SliceBackward0>)
 
 **Description:**
 
-Create and train a neural network to predict whether a water sample is potable or drinkable (`1` or `0`) based on its chemical characteristics. Use the water potability dataset we discussed in class. Output the distribution of the target values.
+Create and train a neural network to predict whether a water sample is potable or drinkable (`1` or `0`) based on its chemical characteristics. Use the water potability dataset we discussed in class. It's present as two CSV files in our `DATA` folder. Output the distribution of the target values.
 
 Perform some exploratory data analysis to choose the best features to use.
 
