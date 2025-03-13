@@ -99,6 +99,34 @@
     - [Step 1: overfit the training set](#step-1-overfit-the-training-set)
     - [Step 2: reduce overfitting](#step-2-reduce-overfitting)
     - [Step 3: fine-tune hyperparameters](#step-3-fine-tune-hyperparameters)
+- [Week 04 - Convolutional Neural Networks. Building multi-input and multi-output models](#week-04---convolutional-neural-networks-building-multi-input-and-multi-output-models)
+  - [Custom PyTorch Datasets](#custom-pytorch-datasets)
+  - [Checkpoint](#checkpoint-5)
+  - [Class-Based PyTorch Model](#class-based-pytorch-model)
+  - [Unstable gradients](#unstable-gradients)
+    - [Solutions to unstable gradients](#solutions-to-unstable-gradients)
+      - [Proper weights initialization](#proper-weights-initialization)
+      - [Batch normalization](#batch-normalization)
+  - [The Clouds dataset](#the-clouds-dataset)
+  - [Converting pixels to tensors and tensors to pixels](#converting-pixels-to-tensors-and-tensors-to-pixels)
+    - [`ToTensor()`](#totensor)
+    - [`PILToTensor()`](#piltotensor)
+    - [`ToPILImage()`](#topilimage)
+  - [Loading images with PyTorch](#loading-images-with-pytorch)
+  - [Data augmentation](#data-augmentation-1)
+  - [CNNs - The neural networks for image processing](#cnns---the-neural-networks-for-image-processing)
+  - [Architecture](#architecture)
+  - [Precision \& Recall for Multiclass Classification (revisited)](#precision--recall-for-multiclass-classification-revisited)
+    - [Computing total value](#computing-total-value)
+    - [Computing per class value](#computing-per-class-value)
+  - [Multi-input models](#multi-input-models)
+  - [The Omniglot dataset](#the-omniglot-dataset)
+  - [Multi-output models](#multi-output-models)
+  - [Character and alphabet classification](#character-and-alphabet-classification)
+  - [Loss weighting](#loss-weighting)
+    - [Varying task importance](#varying-task-importance)
+    - [Losses on different scales](#losses-on-different-scales)
+  - [Checkpoint](#checkpoint-6)
 
 # Week 01 - Hello, Deep Learning. Implementing a Multilayer Perceptron
 
@@ -2824,3 +2852,861 @@ Grid search:
 Random search:
 
 ![w03_random_search_example.png](assets/w03_random_search_example.png "w03_random_search_example.png")
+
+# Week 04 - Convolutional Neural Networks. Building multi-input and multi-output models
+
+## Custom PyTorch Datasets
+
+We can create a custom dataset for our water potability data by inheriting the PyTorch [Dataset class](https://pytorch.org/docs/stable/data.html#torch.utils.data.Dataset). All customs `Dataset` classes must implement the following methods:
+
+- `__init__`: to loads and saves the data in the state of the class. Typically accepts a CSV or an already loaded numpy matrix;
+- `__len__`: returns the number of instaces in the saved data;
+- `__getitem__`: returns the features and label for a single sample. Note: this method returns **a tuple**! The first element is an array of the features, the second is the label.
+
+See an example [here](https://pytorch.org/tutorials/beginner/basics/data_tutorial.html#creating-a-custom-dataset-for-your-files).
+
+> **Note:** While it's not shown in the example, please don't forget to initialize the parent class as well by calling `super().__init__()`.
+
+## Checkpoint
+
+What is the correct way of iterating through the dataloader and passing the inputs to the model?
+
+A. `for img, alpha, labels in dataloader_train: outputs = net(img, alpha)`
+B. `for img, alpha, labels in dataloader_train: outputs = net(img)`
+C. `for img, alpha in dataloader_train: outputs = net(img, alpha)`
+D. `for img, alpha in dataloader_train: outputs = net(img)`
+
+<details>
+<summary>Reveal answer</summary>
+
+A.
+
+</details>
+
+## Class-Based PyTorch Model
+
+This time we'll use another syntax to define models: the `class-based` approach. It provides more flexibility the the functional style.
+
+Here's an example of sequential model definition:
+
+```python
+import torch.nn as nn
+
+net = nn.Sequential(
+  nn.Linear(9, 16),
+  nn.ReLU(),
+  nn.Linear(16, 8),
+  nn.ReLU(),
+  nn.Linear(8, 1),
+  nn.Sigmoid(),
+)
+```
+
+Here's how it can be re-written using the `class-based` approach:
+
+```python
+class Net(nn.Module):
+  def __init__(self):
+    super(Net, self).__init__()
+    self.fc1 = nn.Linear(9, 16)
+    self.fc2 = nn.Linear(16, 8)
+    self.fc3 = nn.Linear(8, 1)
+  
+  def forward(self, x):
+    x = nn.functional.relu(self.fc1(x))
+    x = nn.functional.relu(self.fc2(x))
+    x = nn.functional.sigmoid(self.fc3(x))
+    return x
+
+net = Net()
+```
+
+As can be seen above, every model should define the following two methods:
+
+- `__init__()`: defines the layers that are used in the `forward()` method;
+- `forward()`: defines what happens to the model inputs once it receives them; this is where you pass inputs through pre-defined layers.
+
+By convention `torch.nn.functional` gets imported with an alias `F`. That means that the above body of `forward` can be rewritten like:
+
+```python
+import torch.nn.functional as F
+
+...
+
+x = F.relu(self.fc1(x))
+x = F.relu(self.fc2(x))
+x = F.sigmoid(self.fc3(x))
+```
+
+- PyTorch has many famous deep learning models already built-in.
+- For example, various vision models can be found in the [torchvision.models package](https://pytorch.org/vision/0.9/models.html).
+
+## Unstable gradients
+
+- **Vanishing gradients**: Gradients get smaller and smaller during backward pass.
+
+![w04_vanishing_gradients.png](./assets/w04_vanishing_gradients.png "w04_vanishing_gradients.png")
+
+- Results:
+  - Earlier layers get smaller parameter updates;
+  - Model does not learn.
+  - Loss becomes constant.
+
+- **Exploding gradients**: Gradients get larger and larger during backward pass.
+
+![w04_exploding_gradients.png](./assets/w04_exploding_gradients.png "w04_exploding_gradients.png")
+
+- Results:
+  - Parameter updates are too large.
+  - Loss becomes higher and higher.
+
+### Solutions to unstable gradients
+
+1. Proper weights initialization.
+2. More appropriate activation functions.
+3. Batch normalization.
+
+#### Proper weights initialization
+
+Good weight initialization ensures that the:
+
+- Variance of layer inputs = variance of layer outputs;
+- Variance of gradients is the same before and after a layer.
+
+How to achieve this depends on the activation function:
+
+- For ReLU and similar (sigmoid included), we can use [He/Kaiming initialization](https://paperswithcode.com/method/he-initialization).
+
+```python
+import torch.nn.init as init
+
+init.kaiming_uniform_(layer.weight) # https://pytorch.org/docs/stable/nn.init.html#torch.nn.init.kaiming_uniform_
+```
+
+#### Batch normalization
+
+- Good choice of initial weights and activations doesn't prevent unstable gradients during training (only during initialization).
+- Solution is to add another transformation after each layer - batch normalization:
+  1. Standardizes the layer's outputs by subtracting the mean and diving by the standard deviation **in the batch dimension**.
+  2. Scales and shifts the standardized outputs using learnable parameters.
+- Result:
+  - Model learns optimal distribution of inputs for each layer.
+  - Faster loss decrease.
+  - Helps against unstable gradients during training.
+- Available as [`nn.BatchNorm1d`](https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm1d.html).
+  - **Note 1:** The number of features has to be equal to the number of output neurons of the previous layer.
+  - **Note 2:** Done after applying layer and before the activation.
+
+## The Clouds dataset
+
+We will be working with a dataset containing pictures of various types of clouds.
+
+![w04_task05.png](assets/w04_task05.png "w04_task05.png")
+
+<details>
+
+<summary>How can we load one of those images in Python?</summary>
+
+We can use the [`pillow`](https://pypi.org/project/pillow/) package. It is imported with the name `PIL` and has a very handly [`Image.open` function](https://pillow.readthedocs.io/en/latest/handbook/tutorial.html#using-the-image-class).
+
+</details>
+
+<details>
+
+<summary>Wait - what is an image again?</summary>
+
+- The image is a matrix of pixels ("picture elements").
+- Each pixel contains color information.
+
+![w04_image_pixels.png](assets/w04_image_pixels.png "w04_image_pixels.png")
+
+- Grayscale images: integer in the range $[0 - 255]$.
+  - 30:
+
+    ![w04_image_gray.png](assets/w04_image_gray.png "w04_image_gray.png")
+
+- Color images: three/four integers, one for each color channel (**R**ed, **G**reen, **B**lue, sometimes also **A**lpha).
+  - RGB = $(52, 171, 235)$:
+
+    ![w04_image_blue.png](assets/w04_image_blue.png "w04_image_blue.png")
+
+</details>
+
+## Converting pixels to tensors and tensors to pixels
+
+### [`ToTensor()`](https://pytorch.org/vision/main/generated/torchvision.transforms.ToTensor.html#totensor)
+
+- Converts pixels to float tensors (PIL image => `torch.float`).
+- Scales values to $[0.0, 1.0]$.
+
+### [`PILToTensor()`](https://pytorch.org/vision/main/generated/torchvision.transforms.PILToTensor#piltotensor)
+
+- Converts pixels to `8`-bit unsigned integers (PIL image => `torch.uint8`).
+- Does not scale values: they stay in the interval $[0, 255]$.
+
+### [`ToPILImage()`](https://pytorch.org/vision/0.9/transforms.html#torchvision.transforms.ToPILImage)
+
+- Converts a tensor or an numpy `ndarray` to PIL Image.
+- Does not change values.
+
+## Loading images with PyTorch
+
+The easiest way to build a `Dataset` object when we have a classification task is with a predefined directory structure.
+
+As we load the images, we could also apply preprocessing steps using `torchvision.transforms`.
+
+```text
+clouds_train
+  - cumulus
+    - 75cbf18.jpg
+    - ...
+  - cumulonimbus
+  - ...
+clouds_test
+  - cumulus
+  - cumulonimbus
+```
+
+- Main folders: `clouds_train` and `clouds_test`.
+  - Inside: one folder per category.
+    - Inside: image files.
+
+```python
+from torchvision.datasets import ImageFolder
+from torchvision import transforms
+from torch.utils import data
+
+train_transforms = transforms.Compose([
+  transforms.ToTensor(), # convert the object into a tensor
+  transforms.Resize((128, 128)), # resize the images to be of size 128x128
+])
+
+dataset_train = ImageFolder(
+  'DATA/clouds/clouds_train',
+  transform=train_transforms,
+)
+
+dataloader_train = data.DataLoader(
+  dataset_train,
+  shuffle=True,
+  batch_size=1,
+)
+
+image, label = next(iter(dataloader_train))
+print(image.shape)
+```
+
+```console
+torch.Size([1, 3, 128, 128])
+```
+
+In the above output:
+
+- `1`: batch size;
+- `3`: three color channels;
+- `128`: height;
+- `128`: width.
+
+We could display these images as well, but we'll have to do two transformations:
+
+1. We need to have a three dimensional matrix. The above shape represents a `4D` one. To remove all dimensions with size `1`, we can use the `squeeze` method of the `image` object.
+2. The number of color channels must come after the height and the width. To change the order of the dimensions, we can use the `permute` method of the `image` object.
+
+```python
+image = image.squeeze().permute(1, 2, 0)
+print(image.shape)
+```
+
+```console
+torch.Size([128, 128, 3])
+```
+
+We can now, plot this using `matplotlib`:
+
+```python
+import matplotlib.pyplot as plt
+plt.imshow(image)
+plt.axis('off')
+plt.show()
+```
+
+![w04_loading_image_result.png](assets/w04_loading_image_result.png "w04_loading_image_result.png")
+
+## Data augmentation
+
+<details>
+
+<summary>What is data augmentation?</summary>
+
+Applying random transformations to original data points.
+
+</details>
+
+<details>
+
+<summary>What is the goal of data augmentation?</summary>
+
+Generating more data.
+
+</details>
+
+<details>
+
+<summary>On which set should data augmentation be applied to - train, validation, test, all, some?</summary>
+
+Only to the training set.
+
+</details>
+
+<details>
+
+<summary>What is the added value of data augmentation?</summary>
+
+- Increase the size of the training set.
+- Increase the diversity of the training set.
+- Improve model robustness.
+- Reduce overfitting.
+
+</details>
+
+All supported image augmentation transformation can be found in [the documentation of torchvision](https://pytorch.org/vision/stable/transforms.html#v2-api-reference-recommended).
+
+<details>
+
+<summary>Image augmentation operations can sometimes negatively impact the training process. Can you think of two deep learning tasks in which specific image augmentation operations should not be used?</summary>
+
+- Fruit classification and changing colors:
+
+One of the supported image augmentation transformations is [`ColorJitter`](https://pytorch.org/vision/stable/auto_examples/transforms/plot_transforms_illustrations.html#colorjitter) - it randomly changes brightness, contrast, saturation, hue, and other properties of an image.
+
+If we are doing fruit classification and decide to apply a color shift augmentation to an image of the lemon, the augmented image will still be labeled as lemon although it would represent a lime.
+
+![w04_data_augmentation_problem.png](assets/w04_data_augmentation_problem.png "w04_data_augmentation_problem.png")
+
+- Hand-written characters classification and vertical flip:
+
+![w04_data_augmentation_problem2.png](assets/w04_data_augmentation_problem2.png "w04_data_augmentation_problem2.png")
+
+</details>
+
+<details>
+
+<summary>So, how do we choose appropriate augmentation operations?</summary>
+
+- Whether an augmentation operation is appropriate depends on the task and data.
+- Remember: Augmentations impact model performance.
+
+<details>
+
+<summary>Ok, but then how do we see the dependence in terms of data?</summary>
+
+Explore, explore, explore!
+
+</details>
+
+</details>
+
+<details>
+
+<summary>What transformations can you think of for our current task (cloud classification)?</summary>
+
+```python
+train_transforms = transforms.Compose([
+  transforms.RandomHorizontalFlip(), # simulate different viewpoints of the sky
+  transforms.RandomRotation(45), # expose model to different angles of cloud formations
+  transforms.RandomAutocontrast(), # simulate different lighting conditions
+  transforms.ToTensor(), # convert the object into a tensor
+  transforms.Resize((128, 128)), # resize the images to be of size 128x128
+])
+```
+
+![w04_data_augmentation.png](assets/w04_data_augmentation.png "w04_data_augmentation.png")
+
+</details>
+
+Which of the following statements correctly describe data augmentation? (multiple selection)
+
+A. Using data augmentation allows the model to learn from more examples.
+B. Using data augmentation increases the diversity of the training data.
+C. Data augmentation makes the model more robust to variations and distortions commonly found in real-world images.
+D. Data augmentation reduces the risk of overfitting as the model learns to ignore the random transformations.
+E. Data augmentation introduces new information to the model that is not present in the original dataset, improving its learning capability.
+F. None of the above.
+
+<details>
+
+<summary>Reveal answer</summary>
+
+Answers: A, B, C, D.
+
+Data augmentation allows the model to learn from more examples of larger diversity, making it robust to real-world distortions.
+
+It tends to improve the model's performance, but it does not create more information than is already contained in the original images.
+
+<details>
+
+<summary>What should we prefer - using more real training data or generating it artificially?</summary>
+
+If available, using more training data is preferred to creating it artificially with data augmentation.
+
+</details>
+
+</details>
+
+## CNNs - The neural networks for image processing
+
+Let's say that we have the following image:
+
+![w04_linear_layers_problem.png](assets/w04_linear_layers_problem.png "w04_linear_layers_problem.png")
+
+<details>
+
+<summary>What is the problem of using linear layers to solve the classification task?</summary>
+
+Too many parameters.
+
+If the input size is `256x256`, that means that the network has `65,536` inputs!
+
+If the first linear layer has `1000` neurons, only it alone would result in over `65` **million** parameters! For a color image, this number would be even higher.
+
+![w04_linear_layers_problem2.png](assets/w04_linear_layers_problem2.png "w04_linear_layers_problem2.png")
+
+So, the three main problems are:
+
+- Incredible amount of resources needed.
+- Slow training.
+- Overfitting.
+
+</details>
+
+<details>
+
+<summary>What is another more subtle problem of using linear layers only?</summary>
+
+They are not space-invariant.
+
+Linearly connected neurons could learn to detect the cat, but the same cat **won't be recognized if it appears in a *different* location**.
+
+![w04_space_invariance.png](assets/w04_space_invariance.png "w04_space_invariance.png")
+
+</details>
+
+<details>
+
+<summary>So, ok - the alternative is using CNNs. How do they work?</summary>
+
+![w04_cnn.png](assets/w04_cnn.png "w04_cnn.png")
+
+- Parameters are collected in one or more small grids called **filters**.
+- **Slide** filter(s) over the input.
+- At each step, perform the **convolution** operation.
+- The end result (after the whole image has been traversed with **one filter**) is called a **feature map**:
+  - Preserves spatial patterns from the input.
+  - Uses fewer parameters than linear layer.
+- Remember: one filter = one feature map. We can slide **multiple filters over an original image**, to get multiple feature maps.
+- We can then apply activations to the feature maps.
+- The set of all feature maps combined, form the output of a single convolutional layer.
+- Available in `torch.nn`: [`nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3)`](https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html):
+  - `in_channels`: number of input dimensions.
+  - `out_channels`: number of filters.
+  - `kernel_size`: height and width of the filter(s).
+
+</details>
+
+<details>
+
+<summary>What does the convolution operation comprise of?</summary>
+
+![w04_cnn_dot.png](assets/w04_cnn_dot.png "w04_cnn_dot.png")
+
+</details>
+
+<details>
+
+<summary>What is zero padding?</summary>
+
+![w04_cnn_zero_pad.png](assets/w04_cnn_zero_pad.png "w04_cnn_zero_pad.png")
+
+- Add a frame of zeros to the input of the convolutional layer.
+- This maintains the spatial dimensions of the input and output tensors.
+- Ensures border pixels are treated equally to others.
+
+Available as `padding` argument: `nn.Conv2d(3, 32, kernel_size=3, padding=1)`.
+
+</details>
+
+<details>
+
+<summary>What is max pooling?</summary>
+
+![w04_cnn_max_pool.png](assets/w04_cnn_max_pool.png "w04_cnn_max_pool.png")
+
+- Slide non-overlapping window over input.
+- At each position, retain only the maximum value.
+- Used after convolutional layers to reduce spatial dimensions.
+
+Available in `torch.nn`: [`nn.MaxPool2d(kernel_size=2)`](https://pytorch.org/docs/stable/generated/torch.nn.MaxPool2d.html).
+
+</details>
+
+<details>
+
+<summary>But what happens when the input is three dimensional - what do the filters look like?</summary>
+
+The `2D` part of a `2D` convolution does not refer to the dimension of the convolution input, nor of dimension of the filter itself, but rather of the space in which the filter is allowed to move (`2` directions only).
+
+Different `2D`-array filters are applied to each dimension and then their outputs are summed up (you can also think of this as a single `3D` matrix):
+
+![w04_rgb_convolution.png](assets/w04_rgb_convolution.png "w04_rgb_convolution.png")
+
+$$(1*1+2*2+4*3+5*4)+(0*0+1*1+3*2+4*3) = 56$$
+
+More on this [here](https://stackoverflow.com/a/62544803/16956119) and [here](https://d2l.ai/chapter_convolutional-neural-networks/channels.html).
+
+</details>
+
+## Architecture
+
+The typical architecture follows the style:
+
+1. Convolution.
+2. Activation function - `ReLU`, `ELU`, etc.
+3. Max pooling.
+4. Iterate the above until there are much more filters than heigh and width (effectively, until we get a much "deeper" `z`-axis).
+5. Flatter everything into a single vector using [`nn.Flatten`](https://pytorch.org/docs/stable/generated/torch.nn.Flatten.html). This vector is the ***summary of the original input image***.
+6. Apply several regular linear layers to it.
+
+![w04_architecture2.png](assets/w04_architecture2.png "w04_architecture2.png")
+
+Here's one famous architecture - [VGG-16](https://arxiv.org/abs/1409.1556v6):
+
+![w04_architecture.png](assets/w04_architecture.png "w04_architecture.png")
+
+In our case, we could have something like the following:
+
+![w04_architecture_ours.png](assets/w04_architecture_ours.png "w04_architecture_ours.png")
+
+Which of the following statements are true about convolutional layers? (multiple selection)
+
+A. Convolutional layers preserve spatial information between their inputs and outputs.
+B. Adding zero-padding around the convolutional layer's input ensures that the pixels at the border receive as much attention as those located elsewhere in the feature map.
+C. Convolutional layers in general use fewer parameters than linear layers.
+
+<details>
+
+<summary>Reveal answer</summary>
+
+All of them.
+
+</details>
+
+## Precision & Recall for Multiclass Classification (revisited)
+
+### Computing total value
+
+Sample results for multiclass classification:
+
+```console
+              precision    recall  f1-score   support
+
+     class 0       0.50      1.00      0.67         1
+     class 1       0.00      0.00      0.00         1
+     class 2       1.00      0.67      0.80         3
+
+    accuracy                           0.60         5
+   macro avg       0.50      0.56      0.49         5
+weighted avg       0.70      0.60      0.61         5
+```
+
+`Support` represents the number of instances for each class within the true labels. If the column with `support` has different numbers, then we have class imbalance.
+
+- `macro average` = $\frac{F1_{class1} + F1_{class2} + F1_{class3}}{3}$
+- `weighted average` = $\frac{F1_{class1}*SUPPORT_{class1} + F1_{class2}*SUPPORT_{class2} + F1_{class3}*SUPPORT_{class3}}{3}$
+- `micro average` = $\frac{F1_{class1}*SUPPORT_{class1} + F1_{class2}*SUPPORT_{class2} + F1_{class3}*SUPPORT_{class3}}{SUPPORT_{class1} + SUPPORT_{class2} + SUPPORT_{class3}}$
+
+To calculate them with `torch`, we can use the classes [`torchmetrics.Recall`](https://lightning.ai/docs/torchmetrics/stable/classification/recall.html) and [`torchmetrics.Precision`](https://lightning.ai/docs/torchmetrics/stable/classification/precision.html):
+
+```python
+from torchmetrics import Recall
+
+recall_per_class = Recall(task='multiclass', num_classes=7, average=None)
+recall_micro = Recall(task='multiclass', num_classes=7, average='micro')
+recall_macro = Recall(task='multiclass', num_classes=7, average='macro')
+recall_weighted = Recall(task='multiclass', num_classes=7, average='weighted')
+```
+
+When to use each:
+
+- `micro`: imbalanced datasets.
+- `macro`: consider errors in small classes as equally important as those in larger classes.
+- `weighted`: consider errors in larger classes as most important.
+
+We also have the [F1 score metric](https://lightning.ai/docs/torchmetrics/stable/classification/f1_score.html).
+
+<details>
+
+<summary>What does multilabel classification mean?</summary>
+
+When one instance can get multiple classes assigned to it. This is the case, for example, in research article authorship identification: one article has multiple authors.
+
+</details>
+
+### Computing per class value
+
+- We can also analyze the performance per class.
+- To do this, compute the metric, setting `average=None`.
+  - This gives one score per each class:
+
+```python
+print(f1)
+```
+
+```console
+tensor([0.6364, 1.0000, 0.9091, 0.7917,
+        0.5049, 0.9500, 0.5493],
+        dtype=torch.float32)
+```
+
+- Then, use the `Dataset`'s `.class_to_idx` attribute that maps class names to indices.
+
+```python
+dataset_test.class_to_idx
+```
+
+```console
+{'cirriform clouds': 0,
+ 'clear sky': 1,
+ 'cumulonimbus clouds': 2,
+ 'cumulus clouds': 3,
+ 'high cumuliform clouds': 4,
+ 'stratiform clouds': 5,
+ 'stratocumulus clouds': 6}
+```
+
+## Multi-input models
+
+- Models that accept more than one source of data.
+- We might want the model to use **multiple information sources**, such as two images of the same car to predict its model.
+- **Multi-modal models** can work on different input types such as image and text to answer a question about the image and/or the text.
+- In **metric learning**, the model learns whether two inputs represent the same object.
+  - Passport control system that compares our passport photo with a picture it takes of us.
+- The model can learn that that two augmented versions of the same input represent the same object, thus outputting what the commonalities are or what transformations were applied.
+
+![w04_multi_input.png](assets/w04_multi_input.png "w04_multi_input.png")
+
+## The Omniglot dataset
+
+A collection of images of `964` different handwritten characters from `30` different alphabets.
+
+![w04_omniglot.png](assets/w04_omniglot.png "w04_omniglot.png")
+
+**Task:** Build a two-input model to classify handwritten characters. The first input will be the image of the character, such as this Latin letter `k`. The second input will the the alphabet that it comes from expressed as a one-hot vector.
+
+![w04_omniglot_task.png](assets/w04_omniglot_task.png "w04_omniglot_task.png")
+
+<details>
+<summary>How can we solve this?</summary>
+
+Process both inputs separately, then concatenate their representations.
+
+![w04_omniglot_high_level_idea.png](assets/w04_omniglot_high_level_idea.png "w04_omniglot_high_level_idea.png")
+
+The separate processing, would just be us implementing two networks and using them as layers in our one network that will process one sample:
+
+- The image processing network/layer can have the following architecture:
+  - several chained convolutional -> max pool -> activation layers;
+  - a final linear layer than ouputs a given size, for example `128`.
+- The alphabet processing layer can have:
+  - several linear -> activation layers;
+  - a final linear layer that outputs a given size, for example `8`.
+- We can then `fuse` the the outputs in another linear layer by passing the [concatenated output](https://pytorch.org/docs/main/generated/torch.cat.html#torch-cat) from the other two neural networks:
+
+```python
+class MyModel(nn.Module):
+  def __init__(self):
+    super().__init__()
+    self.layers1 = nn.ModuleList([
+      nn.Linear(32, 64),
+      nn.ReLU(),
+      nn.Linear(64, 10)
+    ])
+    self.layers2 = nn.ModuleList([
+      nn.Linear(64, 32),
+      nn.ReLU(),
+      nn.Linear(32, 1)
+    ])
+    self.classfier = nn.Linear(10 + 1, 42)
+      
+  def forward(self, x1, x2):
+    for layer in self.layers1:
+      x1 = layer(x1)
+    for layer in self.layers2:
+      x2 = layer(x2)
+    x = torch.cat((x1, x2), dim=1)
+    return self.classfier(x)
+```
+
+</details>
+
+## Multi-output models
+
+- **Predict multiple labels** from the same input, such as a car's make and model from its picture;
+- **Multi-label classification**: the input can belong to multiple classes simultaneously:
+  - Authorship attribution of a research paper (one paper => many authors).
+- In very deep models built of blocks of layers we can add **extra outputs** predicting the same targets after each block.
+  - Goal: ensure that the early parts of the model are learning features useful for the task at hand while also serving as a form of regularization to boost the robustness of the network.
+
+![w04_multi_ouput.png](assets/w04_multi_ouput.png "w04_multi_ouput.png")
+
+## Character and alphabet classification
+
+Build a model to predict both the character and the alphabet it comes from based on the image.
+
+![w04_multi_ouput_omniglot.png](assets/w04_multi_ouput_omniglot.png "w04_multi_ouput_omniglot.png")
+
+<details>
+<summary>What will be the architecture of the model?</summary>
+
+- Define image-processing sub-network.
+- Define output-specific classifiers.
+- Pass image through dedicated sub-network.
+- Pass the result through each output layer.
+- Return both outputs.
+- We'll therefore have two loss function objects and two metric tracking objects.
+
+</details>
+
+## Loss weighting
+
+- Now that we have two losses (for alphabets and for characters), we have to choose how to combine them to form the final loss of the model.
+- The most intuitive way is to just sum them up:
+
+```python
+loss = loss_alpha + loss_char
+```
+
+<details>
+<summary>What are the advantages of this approach?</summary>
+
+Both classification tasks are deemed equally important.
+
+</details>
+
+<details>
+<summary>What are the disadvantages of this approach?</summary>
+
+Both classification tasks are deemed equally important.
+
+</details>
+
+### Varying task importance
+
+Classifing the alphabet should be the easier task, since it has less classes.
+
+<details>
+<summary>How could we translate this understanding to the model?</summary>
+
+We could multiply the character loss by a scaler:
+
+```python
+loss = loss_alpha + loss_char * 2
+```
+
+The above is more intuitive for us, however, it'd be better for the model if the weights sum up to `1`, so let's use the below approach:
+
+```python
+loss = 0.33 * loss_alpha + 0.67 * loss_char
+```
+
+</details>
+
+### Losses on different scales
+
+Losses must be on the same scale before they are weighted and added.
+
+<details>
+<summary>But, why - what problems would we have otherwise?</summary>
+
+Example tasks:
+
+- Predict house price => MSE loss.
+- Predict quality: low, medium, high => CrossEntropy loss.
+
+- CrossEntropy loss is typically in the single-digits range.
+- MSE loss can reach tens of thousands.
+- **Result:** Model would ignore quality assessment task.
+
+</details>
+
+<details>
+<summary>How do we solve this?</summary>
+
+Normalize both losses before weighing and adding.
+
+```python
+loss_price = loss_price / torch.max(loss_price)
+loss_quality = loss_quality / torch.max(loss_quality)
+loss = 0.7 * loss_price + 0.3 * loss_quality
+```
+
+</details>
+
+## Checkpoint
+
+Three versions of the two-output model for alphabet and character prediction that we discussed have been trained: `model_a`, `model_b`, and `model_c`. For all three, the loss was defined as follows:
+
+```python
+loss_alpha = criterion(outputs_alpha, labels_alpha)
+loss_char = criterion(outputs_char, labels_char)
+loss = ((1 - char_weight) * loss_alpha) + (char_weight * loss_char)
+```
+
+Each of the three models was trained with a different `char_weight`: `0.1`, `0.5`, or `0.9`.
+
+Here's what accuracies you have recorded:
+
+```python
+evaluate_model(model_a)
+```
+
+```console
+Alphabet: 0.2808536887168884
+Character: 0.1869264841079712
+```
+
+```python
+evaluate_model(model_b)
+```
+
+```console
+Alphabet: 0.35044848918914795
+Character: 0.01783689111471176
+```
+
+```python
+evaluate_model(model_c)
+```
+
+```console
+Alphabet: 0.30363956093788147
+Character: 0.23837509751319885
+```
+
+Which `char_weight` was used to train which model?
+
+A. `model_a`: `0.1`, `model_b`: `0.5`, `model_c`: `0.9`
+B. `model_a`: `0.1`, `model_b`: `0.9`, `model_c`: `0.5`
+C. `model_a`: `0.5`, `model_b`: `0.1`, `model_c`: `0.9`
+D. `model_a`: `0.9`, `model_b`: `0.1`, `model_c`: `0.5`
+C. `model_a`: `0.9`, `model_b`: `0.5`, `model_c`: `0.1`
+
+<details>
+<summary>Reveal answer</summary>
+
+C.
+
+Notice how the model with `90%` of its focus on alphabet recognition (`char_weight=0.1`) does very poorly on the character task.
+
+As we increase `char_weight` to `0.5`, the alphabet accuracy drops slightly due to the increased focus on characters, but when it reaches `char_weight=0.9`, the alphabet accuracy increases slightly with the character accuracy, highlighting the synergy between the tasks.
+
+</details>
