@@ -129,7 +129,7 @@ scores = torch.tensor([[0.1, 6.0, -2.0, 3.2]])
 **Acceptance criteria:**
 
 1. The test case passes.
-2. The variable are used as they are given in the description and not changed.
+2. The variables are used as they are given in the description and not changed.
 
 **Test case:**
 
