@@ -127,6 +127,64 @@
     - [Varying task importance](#varying-task-importance)
     - [Losses on different scales](#losses-on-different-scales)
   - [Checkpoint](#checkpoint-6)
+- [Week 05 - Image Processing](#week-05---image-processing)
+  - [Introduction](#introduction-2)
+    - [Context](#context-2)
+    - [Problem](#problem-1)
+    - [Solution](#solution-2)
+    - [Benefits](#benefits-1)
+    - [Context](#context-3)
+    - [Problem](#problem-2)
+    - [Solution - scikit-image](#solution---scikit-image)
+    - [Images in scikit-image](#images-in-scikit-image)
+  - [RGB and Grayscale](#rgb-and-grayscale)
+    - [Context](#context-4)
+    - [Problem](#problem-3)
+    - [Solution - `color.rgb2gray` and `color.gray2rgb`](#solution---colorrgb2gray-and-colorgray2rgb)
+  - [Basic image operations](#basic-image-operations)
+    - [Using `numpy`](#using-numpy)
+      - [Vertical flip](#vertical-flip)
+      - [Horizontal flip](#horizontal-flip)
+    - [The `transform` module](#the-transform-module)
+      - [Rotating](#rotating)
+      - [Rescaling](#rescaling)
+      - [Resizing](#resizing)
+        - [Problem](#problem-4)
+        - [Solution - anti-aliasing](#solution---anti-aliasing)
+  - [Thresholding](#thresholding)
+    - [Context](#context-5)
+    - [Problem](#problem-5)
+    - [Simple solution - global / histogram based thresholding](#simple-solution---global--histogram-based-thresholding)
+    - [Advanced solutions: local / adaptive thresholding](#advanced-solutions-local--adaptive-thresholding)
+  - [Edge detection](#edge-detection)
+    - [Context](#context-6)
+    - [Problem](#problem-6)
+    - [Solution - Sobel filter](#solution---sobel-filter)
+    - [Advanced solution - edge detection with the Canny algorithm](#advanced-solution---edge-detection-with-the-canny-algorithm)
+  - [Contrast enhancement](#contrast-enhancement)
+    - [Context](#context-7)
+    - [Problem](#problem-7)
+    - [Solutions](#solutions)
+      - [Standard Histogram Equalization](#standard-histogram-equalization)
+      - [Contrastive Limited Adaptive Equalization](#contrastive-limited-adaptive-equalization)
+    - [Checkpoint](#checkpoint-7)
+  - [Image Morphology](#image-morphology)
+  - [Checkpoint](#checkpoint-8)
+  - [Shapes in `scikit-image`](#shapes-in-scikit-image)
+  - [Restoring images with inpainting](#restoring-images-with-inpainting)
+  - [Denoising images](#denoising-images)
+    - [Simple solution - Gaussian smoothing](#simple-solution---gaussian-smoothing)
+    - [Advanced solutions](#advanced-solutions)
+  - [Segmentation](#segmentation)
+    - [Superpixels](#superpixels)
+    - [Simple Linear Iterative Clustering (SLIC)](#simple-linear-iterative-clustering-slic)
+  - [Image contours](#image-contours)
+    - [Implementation in scikit-image](#implementation-in-scikit-image)
+  - [Corner detection](#corner-detection)
+    - [Corners](#corners)
+    - [Harris corner detector](#harris-corner-detector)
+  - [Face detection](#face-detection)
+  - [Applications](#applications)
 
 # Week 01 - Hello, Deep Learning. Implementing a Multilayer Perceptron
 
@@ -3708,5 +3766,894 @@ C.
 Notice how the model with `90%` of its focus on alphabet recognition (`char_weight=0.1`) does very poorly on the character task.
 
 As we increase `char_weight` to `0.5`, the alphabet accuracy drops slightly due to the increased focus on characters, but when it reaches `char_weight=0.9`, the alphabet accuracy increases slightly with the character accuracy, highlighting the synergy between the tasks.
+
+</details>
+
+# Week 05 - Image Processing
+
+**This session is focused on helping you increase the quality of your entire dataset (validation and test included) before you start thinking about modelling it. As such the results from the below techniques have many different downstream applications, only one of which is creating and training deep learning models.**
+
+## Introduction
+
+### Context
+
+We understand now that the quality of images we pass to our models directly affects the quality of the model's predictions. We also want to:
+
+- train a model using a low number of epochs;
+- train a model that does not underfit our data;
+- train a model that does not overfit our data;
+- train the smallest model possible (small and simple architecture) that would do the job (Occam's razor):
+  - smaller => faster inferece;
+  - smaller => faster training;
+  - smaller => faster fine-tuning;
+  - smaller => less storage.
+
+### Problem
+
+We start creating and experimenting with multiple models but they all:
+
+- become too big in terms of parameters;
+- take long to train and predict;
+- don't manage to obtain high metric scores on the validation set.
+
+### Solution
+
+We can try to help the models by **removing unnecessary information in their inputs**. For example, we can:
+
+- leave only the edges of the objects present in the images;
+- give the models the contours of the objects instead of the full objects. The model then would:
+  - only have to figure out what shape the contours represent
+  - not have to deal with extracting the edges and forming contours using them (i.e. we reduce the amount of feature engineering, by doing it beforehand for all incoming data).
+- reduce the noise in the images:
+  - be it background noise;
+  - or just removing objects (parts of the image) that the models should not pay attention to.
+- and do a lot more to help get a better representation of our data, by **focusing the model's attention** on what would help it do better.
+
+### Benefits
+
+- We get all the above benefits.
+- We get a higher quality dataset.
+- Because the preprocessing it predefined we know what task the model will be solving (because we do the feature engineering).
+
+### Context
+
+We want to transform our images:
+
+- be it their entire representation (ex. going from a matrix to a vector of points);
+- or by altering how (and how much) information they represent.
+
+### Problem
+
+We don't know a library that can do that.
+
+### Solution - scikit-image
+
+![w05_skimage_logo.png](assets/w05_skimage_logo.png "w05_skimage_logo.png")
+
+- Easy to use.
+- Makes use of Machine Learning.
+- Out of the box / Built-in complex algorithms.
+
+### Images in scikit-image
+
+The library has a lot of built-in images. Check them out [in the data module](https://scikit-image.org/docs/stable/api/skimage.data.html#).
+
+```python
+from skimage import data
+rocket_image = data.rocket()
+print(type(rocket_image))
+print(rocket_image.shape)
+print(rocket_image[0])
+```
+
+```console
+<class 'numpy.ndarray'>
+(427, 640, 3)
+[[17 33 58]
+ [17 33 58]
+ [17 33 59]
+ ...
+ [ 8 19 37]
+ [ 8 19 37]
+ [ 7 18 36]]
+```
+
+Display images:
+
+```python
+def show_image(image, title='Image', cmap_type='gray'):
+  plt.imshow(image, cmap=cmap_type)
+  plt.title(title)
+  plt.axis('off')
+  plt.show()
+
+show_image(rocket_image)
+```
+
+![w05_rocket_img.png](assets/w05_rocket_img.png "w05_rocket_img.png")
+
+## RGB and Grayscale
+
+### Context
+
+Often we want to reduce the information present by converting to grayscale.
+
+It can also be the case that we want to go back from grayscale to RGB.
+
+Grayscale:
+
+![w05_grayscale.png](assets/w05_grayscale.png "w05_grayscale.png")
+
+RGB:
+
+![w05_rgb_breakdown.png](assets/w05_rgb_breakdown.png "w05_rgb_breakdown.png")
+
+### Problem
+
+How would we do that?
+
+### Solution - `color.rgb2gray` and `color.gray2rgb`
+
+Convert between the two:
+
+```python
+from skimage import data, color
+original = data.astronaut()
+grayscale = color.rgb2gray(original)
+rgb = color.gray2rgb(grayscale)
+```
+
+```python
+show_image(original)
+```
+
+![w05_img_orig.png](assets/w05_img_orig.png "w05_img_orig.png")
+
+```python
+show_image(grayscale)
+```
+
+![w05_img_gray.png](assets/w05_img_gray.png "w05_img_gray.png")
+
+The value of each grayscale pixel is calculated as the weighted sum of the corresponding red, green and blue pixels as:
+
+```text
+Y = 0.2125 R + 0.7154 G + 0.0721 B
+```
+
+```python
+show_image(rgb)
+print(f'{grayscale.shape=}')
+print(f'{rgb.shape=}')
+```
+
+![w05_img_rgb.png](assets/w05_img_rgb.png "w05_img_rgb.png")
+
+```console
+grayscale.shape=(512, 512)
+rgb.shape=(512, 512, 3)
+```
+
+Note that `color.gray2rgb` just duplicates the gray values over the three color channels (as it cannot know the true intensities).
+
+## Basic image operations
+
+### Using `numpy`
+
+Because the type of the loaded images is `<class 'numpy.ndarray'>`, we can directly apply `numpy` manipulations.
+
+#### Vertical flip
+
+```python
+show_image(np.flipud(original))
+```
+
+![w05_flipud.png](assets/w05_flipud.png "w05_flipud.png")
+
+#### Horizontal flip
+
+```python
+show_image(np.fliplr(original))
+```
+
+![w05_fliplr.png](assets/w05_fliplr.png "w05_fliplr.png")
+
+### The `transform` module
+
+For more complex transformations, we can use the `skimage` library instead:
+
+#### Rotating
+
+```python
+from skimage import transform
+transform.rotate(image, -90)
+```
+
+![w05_rotate.png](assets/w05_rotate.png "w05_rotate.png")
+
+#### Rescaling
+
+```python
+from skimage import transform
+transform.rescale(image, 1/4, anti_aliasing=True)
+```
+
+![w05_scaled.png](assets/w05_scaled.png "w05_scaled.png")
+
+#### Resizing
+
+```python
+from skimage import transform
+height = 400
+width = 500
+transform.resize(image, (height, width), anti_aliasing=True)
+```
+
+![w05_resized.png](assets/w05_resized.png "w05_resized.png")
+
+##### Problem
+
+When we rescale/reside by a large factor:
+
+- we lose the bondaries of the objects;
+- background and foreground objects merge (the distinction is lost).
+
+![w05_alasing.png](assets/w05_alasing.png "w05_alasing.png")
+
+![w05_aliasing_comparison.png](assets/w05_aliasing_comparison.png "w05_aliasing_comparison.png")
+
+##### Solution - anti-aliasing
+
+The is because of the [Aliasing phenomenon](https://en.wikipedia.org/wiki/Aliasing): a reconstructed signal from samples of the original signal contains low frequency components that **are not present in the original one**.
+
+- Aliasing makes the image look like it has waves or ripples radiating from a certain portion.
+  - This happens because the pixelation of the image is poor.
+
+We can then set the `anti_aliasing` parameter to `True`.
+
+## Thresholding
+
+### Context
+
+- We have a task for detecting whether there is a human in a picture.
+- We decide that it would be best to reduce the information in an image so as to get a separation between foreground and background.
+  - We want all background parts to have `0` and all foreground to have `1`.
+
+![w05_inverted_thresholding_example.png](assets/w05_inverted_thresholding_example.png "w05_inverted_thresholding_example.png")
+
+In essence, this is a type of image segmentation for object detection. However, we may also have different applications:
+
+- Object detection;
+- Face detection;
+- Noise removal;
+- etc.
+
+![w05_thresholding_example.png](assets/w05_thresholding_example.png "w05_thresholding_example.png")
+
+### Problem
+
+How do we do that?
+
+### Simple solution - global / histogram based thresholding
+
+- **Image histogram:** A graphical representation of the amount of pixels of each intensity value.
+  - From `0` (pure black) to `255` (pure white).
+
+![w05_histogram.png](assets/w05_histogram.png "w05_histogram.png")
+![w05_histogram_color.png](assets/w05_histogram_color.png "w05_histogram_color.png")
+
+- Goal: Partition an image into a foreground and background, by setting one threshold for all pixels.
+- Best for **bimodal** histograms.
+- Steps:
+  1. Convert to grayscale.
+  2. Obtain a threshold value: either manually by looking at the histogram or by using an algorithm.
+  3. Set each pixel to:
+     - `255` (white) if `value > thresh`
+     - `0`, otherwise
+
+We can also automatically try out several global thresholding algorithms. This can be useful when we don't want to manually experiment and choose a value.
+
+```python
+from skimage.filters import try_all_threshold
+fig, axis = try_all_threshold(grayscale, verbose=False)
+```
+
+![w05_global_algorithms.png](assets/w05_global_algorithms.png "w05_global_algorithms.png")
+
+Once we like what one of the algorithms has produced we can instantiate it manually:
+
+```python
+from skimage.filters import threshold_otsu
+thresh = threshold_otsu(image)
+binary_global = image > thresh
+show_image(image, 'Original')
+show_image(binary_global, 'Global thresholding')
+```
+
+![w05_global_otsu.png](assets/w05_global_otsu.png "w05_global_otsu.png")
+
+### Advanced solutions: local / adaptive thresholding
+
+- Determine based on surronding values up to a given range.
+- Good for uneven background illumination.
+- The threshold value is the weighted mean for the local neighborhood of a pixel subtracted by a constant [reference](https://scikit-image.org/docs/stable/api/skimage.filters.html#skimage.filters.threshold_local).
+
+![w05_global_local_thresholding.png](assets/w05_global_local_thresholding.png "w05_global_local_thresholding.png")
+
+```python
+from skimage.filters import threshold_local
+thresh = threshold_local(text_image, block_size=35, offset=10)
+binary_global = text_image > thresh
+show_image(text_image, 'Original')
+show_image(binary_global, 'Local thresholding')
+```
+
+![w05_local.png](assets/w05_local.png "w05_local.png")
+
+## Edge detection
+
+### Context
+
+We have a task about creating a deep learning model that can count the number of coins in an image.
+
+We don't need to know the value of the coints - just their count.
+
+### Problem
+
+How can we increase the quality of our data to help the model?
+
+### Solution - Sobel filter
+
+We can use the [Sobel filter](https://en.wikipedia.org/wiki/Sobel_operator):
+
+![w05_filter_sobel.png](assets/w05_filter_sobel.png "w05_filter_sobel.png")
+
+![w05_filter_sobel2.png](assets/w05_filter_sobel2.png "w05_filter_sobel2.png")
+
+The Sobel filter is [built-in](https://scikit-image.org/docs/stable/api/skimage.filters.html#skimage.filters.sobel) in scikit-image. Whenever, you're using it, make sure the image is grayscaled first.
+
+Just like in convolutional neural networks, filters work on a neighborhood of points.
+
+![w05_filter_neighborhood.png](assets/w05_filter_neighborhood.png "w05_filter_neighborhood.png")
+
+For example the Sobel filter uses the following two filters:
+
+![w05_filter_sobel_matrices.png](assets/w05_filter_sobel_matrices.png "w05_filter_sobel_matrices.png")
+
+### Advanced solution - edge detection with the [Canny algorithm](https://en.wikipedia.org/wiki/Canny_edge_detector)
+
+Let's say that we do want to also get the sum of the coints. Then Sobel might not work for us. We would have to use a more complex algorithm.
+
+The process of Canny edge detection algorithm can be broken down to four different steps:
+
+1. Smooth the image using a Gaussian with `sigma` width.
+2. Apply the horizontal and vertical Sobel operators to get the gradients within the image. The edge strength is the norm of the gradient.
+3. Thin potential edges to `1`-pixel wide curves. First, find the normal to the edge at each point. This is done by looking at the signs and the relative magnitude of the `X`-Sobel and `Y`-Sobel to sort the points into `4` categories: `horizontal`, `vertical`, `diagonal` and `antidiagonal`. Then look in the normal and reverse directions to see if the values in either of those directions are greater than the point in question. Use interpolation to get a mix of points instead of picking the one that’s the closest to the normal.
+4. Perform a hysteresis thresholding: first label all points above the high threshold as edges. Then recursively label any point above the low threshold that is `8`-connected to a labeled point as an edge.
+
+Here is a visual walkthorugh:
+
+![w05_canny_walkthrough.png](assets/w05_canny_walkthrough.png "w05_canny_walkthrough.png")
+
+Compared to the Sobel algorithm, Canny:
+
+- can detect more complex edges;
+- is faster.
+
+Thus, Canny is widely considered to be the standard edge detection method in image processing:
+
+![w05_canny_vs_sobel.png](assets/w05_canny_vs_sobel.png "w05_canny_vs_sobel.png")
+
+## Contrast enhancement
+
+### Context
+
+We have a task about detecting lung disease:
+
+![w05_contrast_medical.png](assets/w05_contrast_medical.png "w05_contrast_medical.png")
+
+### Problem
+
+The images that we receive do not show the details well. They are not very contrastive.
+
+The contrast is the difference between the maximum and minimum pixel intensity in the image.
+
+![w05_enistein.png](assets/w05_enistein.png "w05_enistein.png")
+
+- An image of low contrast has small difference between its dark and light pixel values.
+  - Is usually skewed either to the right (being mostly light), to the left (when is mostly dark), or located around the middle (mostly gray).
+
+![w05_contrast_light.png](assets/w05_contrast_light.png "w05_contrast_light.png")
+
+### Solutions
+
+- **Contrast stretching**: stretches the histogram so the full range of intensity values of the image is filled.
+- **Histogram equalization (HE)**: spreads out the most frequent histogram intensity values using a probability distribution.
+  - Standard HE;
+  - Adaptive HE (also known as AHE);
+  - Contrast Limited Adaptive HE (also known as [CLAHE](https://en.wikipedia.org/wiki/Adaptive_histogram_equalization)).
+
+![w05_he.png](assets/w05_he.png "w05_he.png")
+
+#### Standard Histogram Equalization
+
+```python
+from skimage import exposure
+image_eq = exposure.equalize_hist(image)
+```
+
+Sometimes this works well:
+
+![w05_she_positive.png](assets/w05_she_positive.png "w05_she_positive.png")
+
+But other times, we get a result that, despite the increased contrast, doesn't look natural. In fact, it doesn't even look like the image has been enhanced at all.
+
+![w05_she.png](assets/w05_she.png "w05_she.png")
+
+#### Contrastive Limited Adaptive Equalization
+
+We can then utilize the CLAHE method to obtain a better representation of our image:
+
+![w05_clahe.png](assets/w05_clahe.png "w05_clahe.png")
+
+```python
+from skimage import exposure
+exposure.equalize_adapthist(image, clip_limit=0.03)
+```
+
+![w05_clahe2.png](assets/w05_clahe2.png "w05_clahe2.png")
+
+### Checkpoint
+
+What is the contrast of the following image?
+
+![w05_checkpoint_image.png](assets/w05_checkpoint_image.png "w05_checkpoint_image.png")
+
+![w05_checkpoint_hist.png](assets/w05_checkpoint_hist.png "w05_checkpoint_hist.png")
+
+A. The contrast is `255` (high contrast).
+B. The contrast is `148`.
+C. The contrast is `189`.
+D. The contrast is `49` (low contrast).
+
+<details>
+<summary>Reveal answer</summary>
+
+B.
+
+It can be inferred from the histogram:
+
+- The maximum value is almost `250` (`247` in reality).
+- The minimum value is around `100` (`99` in reality).
+
+$247 - 99 = 148$
+
+</details>
+
+## Image Morphology
+
+<details>
+<summary>What is image morphology?</summary>
+
+The study of the shapes/textures of objects in an image.
+
+</details>
+
+<details>
+<summary>What task can image morphology help with?</summary>
+
+- Object detection.
+- Optical character recognition.
+
+</details>
+
+<details>
+<summary>Does image morphology work best with binary, grayscale or color images?</summary>
+
+- It is typically applied after (binary) thresholding, so is works best with binary images.
+- Can be extended to [grayscale](https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=8ae9fc1e08c790f737d52c4ab6e20234aa269faa).
+
+</details>
+
+<details>
+<summary>What problems might binary images have that could be addressed by image morphology?</summary>
+
+They can often be distorted by noise and texture:
+
+![w05_binary_distorted.png](assets/w05_binary_distorted.png "w05_binary_distorted.png")
+
+Simple tasks can start to become complex:
+
+![w05_r5.png](DATA/w05_r5.png "w05_r5.png")
+
+</details>
+
+<details>
+<summary>What are the two most basic morphological operations?</summary>
+
+Dilation:
+
+![w05_dilation.png](assets/w05_dilation.png "w05_dilation.png")
+
+and erosion:
+
+![w05_erosion.png](assets/w05_erosion.png "w05_erosion.png")
+
+<details>
+<summary>Looking at the examples what does dilation do?</summary>
+
+It adds pixels to the boundaries of objects in an image.
+
+</details>
+
+<details>
+<summary>Looking at the examples what does erosion do?</summary>
+
+It removes pixels on object boundaries.
+
+</details>
+
+</details>
+
+<details>
+<summary>What is the "structuring element"?</summary>
+
+- It defines the number of pixels added or removed.
+- It's implemented as a small binary image used to `probe` the input image.
+- The input image should be padded:
+  - with `1`s, if the operation is erosion.
+  - with `0`s, if the operation is dilation.
+
+We try to `fit` it in the object we want to apply erosion or dilation to.
+
+![w05_structuring_element.png](assets/w05_structuring_element.png "w05_structuring_element.png")
+
+Dilation then is the set of all points where the structuring element `touches` or `hits` the foreground. If that is the case, `1` is outputted at the origin of the structuring element.
+
+Erosion is the set of all points in the image where the structuring element fits **entirely**. If that is the case, `1` is outputted at the origin of the structuring element.
+
+</details>
+
+## Checkpoint
+
+Compute dilation on the image using the structuring element.
+
+![w05_dilation_checkpoint.png](assets/w05_dilation_checkpoint.png "w05_dilation_checkpoint.png")
+
+<details>
+<summary>Reveal answer</summary>
+
+![w05_dilation_answer.png](assets/w05_dilation_answer.png "w05_dilation_answer.png")
+
+You can play around with dilation and erosion [here](https://animation.geekosophers.com/morphological-operations/Dilation/Dilation%20Animation%20Js/index.html) and [here](https://animation.geekosophers.com/morphological-operations/Erosion/Erosion%20Animation%20Js/index.html).
+
+</details>
+
+## Shapes in `scikit-image`
+
+To create structuring elements we can use the function [`footprint_rectangle`](https://scikit-image.org/docs/stable/api/skimage.morphology.html#skimage.morphology.footprint_rectangle).
+
+```python
+from skimage import morphology
+morphology.footprint_rectangle((4, 4))
+```
+
+```console
+array([[1, 1, 1, 1],
+       [1, 1, 1, 1],
+       [1, 1, 1, 1],
+       [1, 1, 1, 1]], dtype=uint8)
+```
+
+We can then use the functions [`binary_erosion`](https://scikit-image.org/docs/stable/api/skimage.morphology.html#skimage.morphology.binary_erosion) and [`binary_dilation`](https://scikit-image.org/docs/stable/api/skimage.morphology.html#skimage.morphology.binary_dilation).
+
+## Restoring images with [inpainting](https://en.wikipedia.org/wiki/Inpainting)
+
+We can restore damaged sections of an image, provided it has regions of the same context as the missing piece(s).
+
+> **Definition:** **Inpainting** is a conservation process where damaged, deteriorated, or missing parts of an artwork are filled in to present a complete image.
+
+![w05_image_restore.png](assets/w05_image_restore.png "w05_image_restore.png")
+
+To do this in `scikit-image` we can use the function [inpaint_biharmonic](https://scikit-image.org/docs/stable/api/skimage.restoration.html#skimage.restoration.inpaint_biharmonic). It takes two arguments:
+
+- `image`: the image to be inpainted;
+- `mask`: a NumPy array of `0`s and `1`s. The regions with `1`s should correspond to the regions in `image` that should be inpainted. Thus, the sizes of `mask` and `image` should match.
+- `channel_axis` is an optional, but also an important parameter. If `None`, the image is assumed to be a **grayscale** (single channel) image. Otherwise, this parameter indicates **which axis of the array corresponds to channels**.
+
+## Denoising images
+
+- Noise is the result of errors in the image acqusition process.
+- Results in pixel values that do not reflect the true intensities of the real scene.
+
+![w05_noise_dog.png](assets/w05_noise_dog.png "w05_noise_dog.png")
+
+In scikit-learn, we can introduce noise in an image using the function [`random_noise`](https://scikit-image.org/docs/stable/api/skimage.util.html#skimage.util.random_noise). It only requires the image to be passed in.
+
+### Simple solution - Gaussian smoothing
+
+Examples for Gaussian smoothing (also [built-in](https://scikit-image.org/docs/stable/api/skimage.filters.html#skimage.filters.gaussian)):
+
+![w05_gauss1.png](assets/w05_gauss1.png "w05_gauss1.png")
+
+![w05_gauss2.png](assets/w05_gauss2.png "w05_gauss2.png")
+
+![w05_gauss3.png](assets/w05_gauss3.png "w05_gauss3.png")
+
+### Advanced solutions
+
+There are several strategies to remove noise if it's harder to pinpoint it:
+
+- Total variation (TV): minimize the total variation of the image. It tends to produce cartoon-like images, that is, piecewise-constant images, thus any edges in the image are lost;
+- Bilateral: replaces the intensity of each pixel with a weighted average of intensity values from nearby pixels. Use when the goal is to preserve the edges in the image;
+- [Wavelet](https://scikit-image.org/docs/stable/auto_examples/filters/plot_denoise_wavelet.html);
+- [Non-local means](https://en.wikipedia.org/wiki/Non-local_means).
+
+![w05_tv_vs_bilateral.png](assets/w05_tv_vs_bilateral.png "w05_tv_vs_bilateral.png")
+
+We can apply TV denoising using the function [`denoise_tv_chambolle`](https://scikit-image.org/docs/stable/api/skimage.restoration.html#skimage.restoration.denoise_tv_chambolle) and bilateral filtering using the function [`denoise_bilateral`](https://scikit-image.org/docs/stable/api/skimage.restoration.html#skimage.restoration.denoise_bilateral). Note that both of them have the argument `channel_axis`.
+
+## Segmentation
+
+<details>
+<summary>What is segmentation?</summary>
+
+The process of partitioning images into regions (called segments) to simplify and/or change the representation into something more meaniningful and easier to analyze.
+
+![w05_pure_segmenation.png](assets/w05_pure_segmenation.png "w05_pure_segmenation.png")
+
+</details>
+
+<details>
+<summary>What is semantic segmentation?</summary>
+
+Classifying each pixel as belonging to a certain class from a prefined set of classes. This task is usually solved with deep neural networks of type [Autoencoder](https://en.wikipedia.org/wiki/Autoencoder).
+
+![w05_semantic_segmenation.jpeg](assets/w05_semantic_segmenation.jpeg "w05_semantic_segmenation.jpeg")
+
+</details>
+
+There are two types of segmentation:
+
+- Supervised: we specify the threshold value ourselves;
+- Unsupervised: algorithms that subdivide images into meaningful regions automatically.
+  - The user may still be able to tweak certain settings to obtain the desired output.
+
+<details>
+<summary>What is an example of an unsupervised algorithm for segmentation we saw earlier?</summary>
+
+The otsu thresholding algorithm.
+
+</details>
+
+### Superpixels
+
+- We'll look into segmentation first without neural networks.
+- Since looking at single pixels by themselves is a hard task that is solved using neural networks, we'll use groups of pixels.
+
+> **Definition:** A region of pixels is called a **superpixel**.
+
+![w05_superpixel.png](assets/w05_superpixel.png "w05_superpixel.png")
+
+### Simple Linear Iterative Clustering ([SLIC](https://mrl.cs.vsb.cz/people/gaura/ano/slic.pdf))
+
+- Segments the image using K-Means clustering.
+- Takes in all the pixel values of the image and tries to separate them into a predefined number of sub-regions.
+- In `scikit-image` it is implemented in the function [`slic`](https://scikit-image.org/docs/stable/api/skimage.segmentation.html#skimage.segmentation.slic).
+  - Also has a parameter `channel_axis`.
+  - Returns an array that is the same shape as the original image in which each pixel is assigned a label.
+
+```python
+import matplotlib.pyplot as plt
+from skimage import segmentation, color, data
+
+segments = segmentation.slic(data.astronaut(), n_segments=300, channel_axis=-1)
+segments
+```
+
+```console
+array([[ 1,  1,  1, ...,  9,  9,  9],
+       [ 1,  1,  1, ...,  9,  9,  9],
+       [ 1,  1,  1, ...,  9,  9,  9],
+       ...,
+       [51, 51, 51, ..., 56, 56, 56],
+       [51, 51, 51, ..., 56, 56, 56],
+       [51, 51, 51, ..., 56, 56, 56]], shape=(512, 512))
+```
+
+We can then use the function [label2rgb](https://scikit-image.org/docs/stable/api/skimage.color.html#skimage.color.label2rgb). It'll return an image where the segments obtained are highlighted, either with random colors or with the average color of the superpixel segment.
+
+```python
+segmented_image = color.label2rgb(segments, data.astronaut(), kind='avg')
+plt.axis('off')
+plt.imshow(segmented_image)
+plt.show()
+```
+
+![w05_astro_after_kmeans.png](assets/w05_astro_after_kmeans.png "w05_astro_after_kmeans.png")
+
+## Image contours
+
+> **Definition:** A contour is a closed shape of points or line segments, representing the boundaries of an object. Having multiple contours means there are multiple objects.
+
+Using image contours will help in:
+
+- measuring object size;
+- classifying shapes;
+- determining the number of objects in an image.
+
+![w05_contours.png](assets/w05_contours.png "w05_contours.png")
+
+The input to a contour-finding function should be a **binary image**, which we can produce by first applying thresholding or edge detection. The objects we wish to detect should be white, while the background - black.
+
+![w05_thresholded_before_contour.png](assets/w05_thresholded_before_contour.png "w05_thresholded_before_contour.png")
+
+We can then use the function [find_contours](https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.find_contours) passing in the binary image. The function:
+
+- Joins pixels of equal brightness in a 2D array above a given `level` value (default = `(max(image) + min(image)) / 2`).
+  - the closer `level` is to `1`, the more sensitive the method is to detecting contours, so more complex contours will be detected.
+  - We have to find the value that best detects the contours we care for.
+- Returns a list of arrays where each array holds the contours of an object as pairs of coordinates.
+
+![w05_constant_level.png](assets/w05_constant_level.png "w05_constant_level.png")
+
+The shapes of the contours can tell us which object they belong to. We can then use them to count the objects from a particular shape.
+
+![w05_contour_shape.png](assets/w05_contour_shape.png "w05_contour_shape.png")
+
+### Implementation in scikit-image
+
+We can use the function [canny](https://scikit-image.org/docs/stable/api/skimage.feature.html#skimage.feature.canny) to perform edge detection using the Canny algorithm.
+
+Two parameters should be considered when using it:
+
+- `image`: This is the input image. Note that it should be a **2D array**, i.e. **is has to be converted to grayscale first**.
+- `sigma`: This is the standard deviation of the Gaussian filter that is applied on step `1` of the execution of the algorithm.
+  - It can be any positive floating point value.
+  - The higher it is, the less edges are going to be detected, since more aggressive smoothing will be applied. The default value of `1` often works pretty well.
+
+## Corner detection
+
+### Corners
+
+Detecting corners can pop up as a subtask when doing:
+
+- motion detection;
+- video tracking;
+- panorama stitching;
+- 3D modelling;
+- object detection;
+- image registration;
+- etc, etc.
+
+![w05_registration.png](assets/w05_registration.png "w05_registration.png")
+
+> **Definition:** A corner is the intersection of two edges.
+
+Intuitively, it can also be a junction of contours. We can see some obvious corners in this checkerboard image and in this building image on the right.
+
+![w05_corners.png](assets/w05_corners.png "w05_corners.png")
+
+> **Definition:** Points of interest are groups of pixels in an image which are invariant to rotation, translation, intensity, and scale changes.
+
+By detecting corners (and edges) as interest points, we can match objects from different perspectives.
+
+![w05_corner_matching.png](assets/w05_corner_matching.png "w05_corner_matching.png")
+
+![w05_corner_matching2.png](assets/w05_corner_matching2.png "w05_corner_matching2.png")
+
+### [Harris corner detector](https://en.wikipedia.org/wiki/Harris_corner_detector)
+
+Commonly, the Harris corner detector algorithm can be divided into five steps:
+
+1. Color to grayscale.
+2. Spatial derivative calculation.
+3. Structure tensor setup.
+4. Harris response calculation.
+5. Non-maximum suppression.
+
+The first `4` steps are implemented in `scikit-image` as the function [corner_harris](https://scikit-image.org/docs/stable/api/skimage.feature.html#skimage.feature.corner_harris).
+
+It returns the Harris measure response image, i.e., the resulting image shows only the approximated points where the corner-candidates are.
+
+![w05_harris_return_value.png](assets/w05_harris_return_value.png "w05_harris_return_value.png")
+
+To find the corners in the measure response image, we need to perform non-maximum suppression. For that we can use the function [corner_peaks](https://scikit-image.org/docs/stable/api/skimage.feature.html#skimage.feature.corner_peaks). It:
+
+- Has an optional parameter `min_distance` that sets the minimum distance between peaks. Default value: `1`.
+- Has another optional parameter `threshold_rel` sets the minimum intensity of peaks. Default value: `0` (consider all candidate-peaks).
+- Returns a list of 2D arrays with corner coordinates.
+- Can be applied directly on the return value of the Harris algorithm:
+
+```python
+coords = corner_peaks(corner_harris(image), min_distance=5)
+print(f'A total of {len(coords)} corners were detected.')
+print(coords[:5])
+```
+
+```console
+A total of 1267 corners were detected.
+[[445 310]
+ [368 400]
+ [455 346]
+ [429 371]
+ [467 241]]
+```
+
+We can then plot those points via `matplotlib` on top of the original image.
+
+```python
+plt.plot(coords[:, 0], coords[:, 1], '+r', markersize=15)
+```
+
+## Face detection
+
+We can detect faces using the class [Cascade](https://scikit-image.org/docs/stable/api/skimage.feature.html#skimage.feature.Cascade).
+
+```python
+detector = Cascade(xml_file=trained_file)
+```
+
+The parameter `xml_file` must be set to a file (or path to a file) that holds parameters of a trained model.
+
+Since we're not focusing on doing this right now, we'll use an already trained and built-in model in `scikit-image` using the function [lbp_frontal_face_cascade_filename](https://scikit-image.org/docs/stable/api/skimage.data.html#skimage.data.lbp_frontal_face_cascade_filename).
+
+```python
+trained_file = data.lbp_frontal_face_cascade_filename()
+detector = Cascade(xml_file=trained_file)
+```
+
+We can then use the method [detect_multi_scale](https://scikit-image.org/docs/stable/api/skimage.feature.html#skimage.feature.Cascade.detect_multi_scale) to perform face detection.
+
+- It creates a window that will be moving through the image until it finds something similar to a human face:
+  - the parameter `img` can be a grayscale or color image;
+  - the parameter `scale_factor` sets by how much the search window will expand after one convolution;
+  - the parameter `step_ratio` sets by how much the search window will shift to the right and bottom. `1` means exhaustive search. Values in the interval `[1 .. 1.5]` give good results.
+  - the parameter `min_size` sets the minimum size of the window that will be searching for the farthest faces.
+  - the parameter `max_size` sets the maximum size of the window that will be searching for the closest faces.
+- Searching happens on multiple scales. The window will have a minimum size to spot far-away faces and a maximum size to also find the closer faces in the image.
+- The return value is a list of bounding boxes defined by the:
+  - upper left coordinates: `r` and `c`;
+  - the width and height of the bounding box: `width` and `height`.
+
+![w05_multiscale_fd.png](assets/w05_multiscale_fd.png "w05_multiscale_fd.png")
+
+```python
+detected = detector.detect_multi_scale(img=image, scale_factor=1.2, step_ratio=1, min_size=(10, 10), max_size=(200, 200))
+print(detected)
+```
+
+```console
+[{'r': 115, 'c': 210, 'width': 167, 'height': 167}]
+```
+
+## Applications
+
+There are many situations in which we can apply what we've discussed here:
+
+- Converting an image to grayscale;
+- Detecting edges;
+- Detecting corners;
+- Reducing noise;
+- Restoring images;
+- Approximating objects' sizes;
+- Privary protection;
+- etc, etc.
+
+Let's look at how we would solve a privacy protection case. We want to turn this:
+
+![w05_privacy_start.png](assets/w05_privacy_start.png "w05_privacy_start.png")
+
+into this:
+
+![w05_privacy_end.png](assets/w05_privacy_end.png "w05_privacy_end.png")
+
+<details>
+<summary>What steps should we take?</summary>
+
+1. Detect faces.
+2. Cut out faces.
+3. Apply a Gaussian filter on each face with large `sigma` to introduce blurriness.
+4. Stitch the faces back to the original image.
 
 </details>
