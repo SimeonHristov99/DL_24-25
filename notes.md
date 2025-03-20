@@ -179,7 +179,6 @@
     - [Superpixels](#superpixels)
     - [Simple Linear Iterative Clustering (SLIC)](#simple-linear-iterative-clustering-slic)
   - [Image contours](#image-contours)
-    - [Implementation in scikit-image](#implementation-in-scikit-image)
   - [Corner detection](#corner-detection)
     - [Corners](#corners)
     - [Harris corner detector](#harris-corner-detector)
@@ -4144,6 +4143,15 @@ Thus, Canny is widely considered to be the standard edge detection method in ima
 
 ![w05_canny_vs_sobel.png](assets/w05_canny_vs_sobel.png "w05_canny_vs_sobel.png")
 
+We can use the function [canny](https://scikit-image.org/docs/stable/api/skimage.feature.html#skimage.feature.canny) to perform edge detection using the Canny algorithm.
+
+Two parameters should be considered when using it:
+
+- `image`: This is the input image. Note that it should be a **2D array**, i.e. **is has to be converted to grayscale first**.
+- `sigma`: This is the standard deviation of the Gaussian filter that is applied on step `1` of the execution of the algorithm.
+  - It can be any positive floating point value.
+  - The higher it is, the less edges are going to be detected, since more aggressive smoothing will be applied. The default value of `1` often works pretty well.
+
 ## Contrast enhancement
 
 ### Context
@@ -4500,17 +4508,6 @@ We can then use the function [find_contours](https://scikit-image.org/docs/stabl
 The shapes of the contours can tell us which object they belong to. We can then use them to count the objects from a particular shape.
 
 ![w05_contour_shape.png](assets/w05_contour_shape.png "w05_contour_shape.png")
-
-### Implementation in scikit-image
-
-We can use the function [canny](https://scikit-image.org/docs/stable/api/skimage.feature.html#skimage.feature.canny) to perform edge detection using the Canny algorithm.
-
-Two parameters should be considered when using it:
-
-- `image`: This is the input image. Note that it should be a **2D array**, i.e. **is has to be converted to grayscale first**.
-- `sigma`: This is the standard deviation of the Gaussian filter that is applied on step `1` of the execution of the algorithm.
-  - It can be any positive floating point value.
-  - The higher it is, the less edges are going to be detected, since more aggressive smoothing will be applied. The default value of `1` often works pretty well.
 
 ## Corner detection
 
