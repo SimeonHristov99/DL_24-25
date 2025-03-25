@@ -184,6 +184,37 @@
     - [Harris corner detector](#harris-corner-detector)
   - [Face detection](#face-detection)
   - [Applications](#applications)
+- [Week 06 - Object Detection](#week-06---object-detection)
+  - [Checkpoint](#checkpoint-9)
+  - [Adding new layers to an already instantiated model](#adding-new-layers-to-an-already-instantiated-model)
+  - [Leveraging pre-trained models](#leveraging-pre-trained-models)
+  - [Download `torchvision` models](#download-torchvision-models)
+  - [Generating a new prediction](#generating-a-new-prediction)
+  - [Saving the parameters of a trained PyTorch model](#saving-the-parameters-of-a-trained-pytorch-model)
+  - [Loading PyTorch models](#loading-pytorch-models)
+  - [Object detection](#object-detection)
+    - [The context around object detection](#the-context-around-object-detection)
+    - [Drawing bounding boxes](#drawing-bounding-boxes)
+    - [Checkpoint](#checkpoint-10)
+    - [Detecting multiple objects](#detecting-multiple-objects)
+      - [Problem - multiple objects](#problem---multiple-objects)
+      - [Problem - different scales](#problem---different-scales)
+      - [Problem - different aspect ratios](#problem---different-aspect-ratios)
+    - [Rich feature hierarchies for accurate object detection and semantic segmentation (`R-CNN`)](#rich-feature-hierarchies-for-accurate-object-detection-and-semantic-segmentation-r-cnn)
+    - [R-CNN: extracting Region proposals via Selective search](#r-cnn-extracting-region-proposals-via-selective-search)
+    - [R-CNN: extracting feature representations](#r-cnn-extracting-feature-representations)
+      - [Problem - fixed input size](#problem---fixed-input-size)
+    - [R-CNN: object category classifiers](#r-cnn-object-category-classifiers)
+    - [R-CNN: bounding-box regression](#r-cnn-bounding-box-regression)
+    - [R-CNN: **custom** backbone, classifier and regressor](#r-cnn-custom-backbone-classifier-and-regressor)
+    - [Evaluating object detection models](#evaluating-object-detection-models)
+      - [Intersection over union (IoU)](#intersection-over-union-iou)
+      - [IoU in PyTorch](#iou-in-pytorch)
+    - [Non-maximum suppression (NMS)](#non-maximum-suppression-nms)
+    - [Faster R-CNN model: an advanced version of R-CNN](#faster-r-cnn-model-an-advanced-version-of-r-cnn)
+      - [Faster R-CNN architecture](#faster-r-cnn-architecture)
+      - [Region Proposal Network (RPN)](#region-proposal-network-rpn)
+    - [Running object recognition on a single image](#running-object-recognition-on-a-single-image)
 
 # Week 01 - Hello, Deep Learning. Implementing a Multilayer Perceptron
 
@@ -4654,3 +4685,741 @@ into this:
 4. Stitch the faces back to the original image.
 
 </details>
+
+# Week 06 - Object Detection
+
+## Checkpoint
+
+Let's say that we have the following image dataset:
+
+```python
+train_dataset
+```
+
+```console
+Dataset ImageFolder
+    Number of datapoints: 202
+    Root location: /home/repl/pets_data/train
+    StandardTransform
+Transform: ToTensor()
+```
+
+<details>
+<summary>How can we determine the number of classes in this dataset?</summary>
+
+We can go through the whole dataset and create a `set` with all the second elements (as each element is a `tuple`):
+
+```python
+{label for _, label in train_dataset}
+```
+
+```console
+{0, 1}
+```
+
+</details>
+
+## Adding new layers to an already instantiated model
+
+We can use the `add_module` method. It takes a module object and adds the layer as the last one in that object. To create submodules in a class definition we can use the class [nn.ModuleList](https://pytorch.org/docs/stable/generated/torch.nn.ModuleList.html#modulelist).
+
+```python
+import torch
+import torch.nn as nn
+
+class Net(nn.Module):
+  def __init__(self):
+    super(Net, self).__init__()
+    self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, padding=1)
+
+net = Net()
+conv2 = nn.Conv2d(in_channels=net.conv1.out_channels, out_channels=32, kernel_size=3, padding=1)
+net.add_module('conv2', conv2)
+print(net)
+```
+
+```console
+Net(
+  (conv1): Conv2d(3, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (conv2): Conv2d(16, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+)
+```
+
+## Leveraging pre-trained models
+
+- Training models from scratch:
+  - Long process.
+  - Requires lots of:
+    - data;
+    - resources.
+- Instead, we can often use **pre-trained models**: models that are already trained on a task:
+  - Can be applied directly on the same task or a similar one, so long as it's not that different.
+  - If the task is completely different, they require training for (usually) a few epochs to adjust their weights to the new task (a process also known as **transfer learning**).
+- Steps to leveraging pre-trained models:
+  - Explore available models in [torchvision](https://pytorch.org/vision/stable/models.html#classification).
+  - Load and save models locally.
+
+## Download `torchvision` models
+
+```python
+from torchvision.models import resnet18, ResNet18_Weights
+
+weights = ResNet18_Weights.DEFAULT # details here: https://pytorch.org/vision/stable/models/generated/torchvision.models.resnet18.html#torchvision.models.ResNet18_Weights
+model = resnet18(weights=weights)
+transforms = weights.transforms()
+print(model)
+```
+
+```console
+ResNet(
+  (conv1): Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+  (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (relu): ReLU(inplace=True)
+  (maxpool): MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False)
+  (layer1): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+    ...
+  )
+  ...
+  (avgpool): AdaptiveAvgPool2d(output_size=(1, 1))
+  (fc): Linear(in_features=512, out_features=1000, bias=True)
+)
+```
+
+## Generating a new prediction
+
+```python
+model.eval()
+
+with torch.no_grad():
+  pred = model(input_image).squeeze(0) # remove batch dimension
+
+pred_cls = pred.softmax(0)
+cls_id = pred_cls.argmax().item()
+cls_name = weights.meta['categories'][cls_id]
+
+print(cls_name)
+```
+
+## Saving the parameters of a trained PyTorch model
+
+- [`torch.save()`](https://pytorch.org/docs/main/generated/torch.save.html)
+- Model extension: `.pt`.
+- Save model weights with `.state_dict()`.
+
+```python
+torch.save(model.state_dict(), 'BinaryCNN.pt')
+```
+
+## Loading PyTorch models
+
+Instantiate a new model:
+
+```python
+new_model = BinaryCNN()
+```
+
+Load saved parameters:
+
+```python
+new_model.load_state_dict(torch.load('BinaryCNN.pt'))
+```
+
+## Object detection
+
+### The context around object detection
+
+<details>
+<summary>What is the goal of object classification?</summary>
+
+Assign one **or multiple** class labels to a single image from a set of predefined class categories defined in the training dataset.
+
+![w06_im_cls.png](assets/w06_im_cls.png "w06_im_cls.png")
+
+</details>
+
+<details>
+<summary>What is the goal of object localization?</summary>
+
+Single label classification + localization of object.
+
+Classify the object present in an image and return its *bounding box*.
+
+![w06_im_cls_loc.png](assets/w06_im_cls_loc.png "w06_im_cls_loc.png")
+
+</details>
+
+<details>
+<summary>What is the goal of object detection?</summary>
+
+Locate all instances of all object classes in an image.
+
+![w06_im_cls_loc_det.png](assets/w06_im_cls_loc_det.png "w06_im_cls_loc_det.png")
+
+</details>
+
+<details>
+<summary>Give at least three usecases where object detection might be useful.</summary>
+
+- **Surveillance.** <-- most popular
+- Medical diagnosis.
+- Traffic management.
+- Sports analytics.
+
+</details>
+
+<details>
+<summary>So, what is the output of object detection?</summary>
+
+- Location of each object in the image (also known as **bounding box**).
+- Class label of each object.
+- Optionally, a confidence score is returned. It indicates how confident the model is that the object is present in the bounding box.
+
+The models, thus, would output tuples with the set of bounding boxes and their corresponding labels.
+
+</details>
+
+### Drawing bounding boxes
+
+<details>
+<summary>What is a bounding box?</summary>
+
+A rectangular box describing the object's spatial location.
+
+![w06_od_output.png](assets/w06_od_output.png "w06_od_output.png")
+
+</details>
+
+<details>
+<summary>How would a bounding box be implemented?</summary>
+
+It's often represented as a tuple with `4` elements: `(x1, y1, x2, y2)`.
+
+The elements `x1` and `y1` are typically the top-left pixel coordinates of the bounding box.
+
+The elements `x2` and `y2` can represent different values:
+
+- they can be the width and height of the bounding box (in pixels);
+- or they can be the bottom-right pixel coordinates of the bounding box (the way PyTorch uses them).
+
+![w06_od_example_cat.png](assets/w06_od_example_cat.png "w06_od_example_cat.png")
+
+</details>
+
+<details>
+<summary>If we had multiple bounding boxes over an object how would we choose the one to return to the user?</summary>
+
+We choose the one most tight one:
+
+- it should cover the entirety of the object;
+- while keeping the box area as small as possible.
+
+</details>
+
+PyTorch has a built-in utility function to do draw bounding boxes: [`draw_bounding_boxes`](https://pytorch.org/vision/main/generated/torchvision.utils.draw_bounding_boxes.html#draw-bounding-boxes).
+
+```python
+from torchvision import utils
+
+bbox = torch.tensor([x_min, y_min, x_max, y_max]).unsqueeze(0) # add a batch dimension
+bbox = bbox.unsqueeze(0) # add a batch dimension
+
+# width => width of lines forming the rectangle
+# colors => what color the lines should be
+# NOTE: Also takes an optional parameter "labels" that adds a label to the bounding box
+bbox_image = utils.draw_bounding_boxes(image_tensor, bbox, width=3, colors='red')
+```
+
+### Checkpoint
+
+Which of the following statements about object detection and bounding boxes is true?
+
+A. Bounding boxes are represented by the `x` and `y` coordinates of each of the four box corners, so eight numbers altogether.
+B. Object detection's goal is only to identify the spatial location of an object within the image.
+C. Bounding boxes are both the way to annotate the training data for object detection tasks as well as the outputs of the models.
+
+<details>
+<summary>Reveal answer</summary>
+
+C.
+
+For A: Two coordinates or one coordinate with width and height is enough.
+For B: Next to locating the object within the image, object detection is also concerned with classifying the object it detected.
+
+</details>
+
+### Detecting multiple objects
+
+<details>
+<summary>What was the blueprint neural network architecture that was used to solve object classification problems?</summary>
+
+1. Feature extraction.
+2. Feature classification.
+
+![w06_im_cls_arch.png](assets/w06_im_cls_arch.png "w06_im_cls_arch.png")
+
+</details>
+
+<details>
+<summary>How can we extend the blueprint neural network architecture for object classification to facilitate solving object localization problems?</summary>
+
+- We would have a second output (**multi-output** model) for the bounding box.
+- This second output would be produced by a second set of fully-connected layers.
+
+![w06_im_loc_arch.png](assets/w06_im_loc_arch.png "w06_im_loc_arch.png")
+
+</details>
+
+<details>
+<summary>What loss function would we use for this new output?</summary>
+
+MSE or RMSE.
+
+</details>
+
+#### Problem - multiple objects
+
+But what if we had multiple objects that we have to return - our network can only output one bounding box?
+
+![w06_multple_obj.png](assets/w06_multple_obj.png "w06_multple_obj.png")
+
+<details>
+<summary>Reveal answer</summary>
+
+We can use the sliding window approach.
+
+1. Preprocess the dataset into many different small patches of the same size.
+2. Do image classification on every single patch.
+
+![w06_multple_obj_sol.png](assets/w06_multple_obj_sol.png "w06_multple_obj_sol.png")
+
+You can see that this does not really solve the problem, right?
+
+</details>
+
+#### Problem - different scales
+
+We can also have objects of different sizes:
+
+![w06_multple_obj_diff_scale.png](assets/w06_multple_obj_diff_scale.png "w06_multple_obj_diff_scale.png")
+
+<details>
+<summary>How would we solve this?</summary>
+
+We can either:
+
+- have cropping windows of different sizes:
+
+![w06_multple_obj_diff_scale_sol1.png](assets/w06_multple_obj_diff_scale_sol1.png "w06_multple_obj_diff_scale_sol1.png")
+
+- have one cropping window, but start up- and downscaling the images:
+
+![w06_multple_obj_diff_scale_sol2.png](assets/w06_multple_obj_diff_scale_sol2.png "w06_multple_obj_diff_scale_sol2.png")
+
+This also leads to efficiency problems.
+
+</details>
+
+#### Problem - different aspect ratios
+
+But then, we should also be able to handle multiple types of objects:
+
+![w06_multple_obj_diff_asp_ratio.png](assets/w06_multple_obj_diff_asp_ratio.png "w06_multple_obj_diff_asp_ratio.png")
+
+So you can see how the complexity of these problems quickly blows up. We can roughly say that for **a single image**:
+
+```python
+computational_cost = num_scales * num_aspect_ratios * width * height
+```
+
+And this is only for a single image!
+
+### Rich feature hierarchies for accurate object detection and semantic segmentation (`R-CNN`)
+
+- Part of [the region-based CNN family](https://en.wikipedia.org/wiki/Region_Based_Convolutional_Neural_Networks).
+  - R-CNN;
+  - Fast R-CNN;
+  - Faster R-CNN.
+- Paper: <https://arxiv.org/abs/1311.2524>.
+
+<details>
+<summary>Open the paper and find the number of the figure that outlines the 4 stages of the algorithm.</summary>
+
+![w06_rcnn_fig.png](assets/w06_rcnn_fig.png "w06_rcnn_fig.png")
+
+</details>
+
+<details>
+<summary>Open the paper and find the section in which the three modules of the system are defined.</summary>
+
+![w06_rcnn_modules.png](assets/w06_rcnn_modules.png "w06_rcnn_modules.png")
+
+</details>
+
+<details>
+<summary>Open the paper and find the name of the algorithm used by R-CNN for generating region proposals.</summary>
+
+Selective search:
+
+- Paper: <http://www.huppelen.nl/publications/selectiveSearchDraft.pdf>.
+
+![w06_rcnn_ss.png](assets/w06_rcnn_ss.png "w06_rcnn_ss.png")
+
+![w06_rcnn_ss_res.png](assets/w06_rcnn_ss_res.png "w06_rcnn_ss_res.png")
+
+</details>
+
+So the architecture of R-CNN would be:
+
+![w06_rcnn_architecture.png](assets/w06_rcnn_architecture.png "w06_rcnn_architecture.png")
+
+- Module 1: generation of region proposals using the algorithm Selective Search.
+  - Returns the bounding boxes where objects might be located.
+- Module 2: feature extraction using pre-trained weights.
+  - Returns the obtained features for every proposal with convolutional layers.
+- Module 3: class and bounding box prediction.
+  - Returns bounding boxes and the class labels of the objects in them with bounding box regressor layers.
+
+### R-CNN: extracting Region proposals via Selective search
+
+Paper: <http://www.huppelen.nl/publications/selectiveSearchDraft.pdf>.
+
+1. Use graph segmentation to segment the image into components that are similar to each other.
+   - Vertices = pixels.
+   - Weighted edges = similarity metric between pixels (heavier = higher similarity).
+     - color difference;
+     - texture difference;
+     - etc, etc.
+   1. Every node is a component.
+   2. Until components that have not been merged:
+      1. Pick two components with smallest edge weight.
+      2. If `weight < threshold`, merge components.
+      3. Increase `threshold`.
+2. Merge regions of interest into larger regions (components) using different similarity measures.
+
+![w06_ss_paper_example.png](assets/w06_ss_paper_example.png "w06_ss_paper_example.png")
+
+<details>
+<summary>Open the paper and find the different similarity measures used.</summary>
+
+![w06_ss_metric1.png](assets/w06_ss_metric1.png "w06_ss_metric1.png")
+![w06_ss_metric2.png](assets/w06_ss_metric2.png "w06_ss_metric2.png")
+![w06_ss_metric3.png](assets/w06_ss_metric3.png "w06_ss_metric3.png")
+![w06_ss_metric4.png](assets/w06_ss_metric4.png "w06_ss_metric4.png")
+![w06_ss_metric5.png](assets/w06_ss_metric5.png "w06_ss_metric5.png")
+
+</details>
+
+### R-CNN: extracting feature representations
+
+1. Extract Region proposals from the image (~ 2K per image).
+2. For each proposal: extract feature representation.
+
+<details>
+<summary>Open the paper and find input dimension of the CNN model used.</summary>
+
+`227 x 277`
+
+![w06_rcnn_model.png](assets/w06_rcnn_model.png "w06_rcnn_model.png")
+
+</details>
+
+<details>
+<summary>Do you know what famous model the authors are using?</summary>
+
+[`AlexNet`](https://en.wikipedia.org/wiki/AlexNet)
+
+![w06_rcnn_model_alex.png](assets/w06_rcnn_model_alex.png "w06_rcnn_model_alex.png")
+
+</details>
+
+<details>
+<summary>Open the paper and find the first step in the training process - what does it comprise of?</summary>
+
+Pretrain AlexNet on ImageNet.
+
+![w06_rcnn_train_p1.png](assets/w06_rcnn_train_p1.png "w06_rcnn_train_p1.png")
+![w06_rcnn_train_p2.png](assets/w06_rcnn_train_p2.png "w06_rcnn_train_p2.png")
+
+</details>
+
+<details>
+<summary>Open the paper and find the second step in the training process - what does it comprise of?</summary>
+
+1. Replace the classification layer of AlexNet with the one for their (the authors') dataset and add a class for the background.
+2. Use intersection-over-union to label the appropriate regions as positive or negative.
+3. Fine-tune on their dataset.
+
+![w06_rcnn_train_p3.png](assets/w06_rcnn_train_p3.png "w06_rcnn_train_p3.png")
+![w06_rcnn_train_p4.png](assets/w06_rcnn_train_p4.png "w06_rcnn_train_p4.png")
+
+![w06_rcnn_train_p8.png](assets/w06_rcnn_train_p8.png "w06_rcnn_train_p8.png")
+
+</details>
+
+#### Problem - fixed input size
+
+The network expects images of size `227x227`, but the bounding boxes can be of arbitrary size.
+
+![w06_rcnn_train_p5.png](assets/w06_rcnn_train_p5.png "w06_rcnn_train_p5.png")
+
+<details>
+<summary>Open the paper and find the section in which the authors describe how they dealt with this problem.</summary>
+
+1. Dilate the proposal with $p$ pixels.
+2. Resize the warped proposal to `227x227.`
+
+![w06_rcnn_train_p6.png](assets/w06_rcnn_train_p6.png "w06_rcnn_train_p6.png")
+![w06_rcnn_train_p7.png](assets/w06_rcnn_train_p7.png "w06_rcnn_train_p7.png")
+
+</details>
+
+### R-CNN: object category classifiers
+
+<details>
+<summary>Open the paper and find the model used to perform object classification?</summary>
+
+Support Vector Machine:
+
+![w06_rcnn_train_p9.png](assets/w06_rcnn_train_p9.png "w06_rcnn_train_p9.png")
+
+</details>
+
+<details>
+<summary>What is the input to the classifier?</summary>
+
+The output of the last fully-connected layer in AlexNet.
+
+![w06_rcnn_train_p10.png](assets/w06_rcnn_train_p10.png "w06_rcnn_train_p10.png")
+
+</details>
+
+### R-CNN: bounding-box regression
+
+<details>
+<summary>Open the paper and find the section where the authors discussed how they implemented bounding box regression.</summary>
+
+They train a linear regression model to perform a transformation on the outputs of selective search to have them more closely match the ground truth labels.
+
+![w06_rcnn_train_p11.png](assets/w06_rcnn_train_p11.png "w06_rcnn_train_p11.png")
+
+</details>
+
+### R-CNN: **custom** backbone, classifier and regressor
+
+```python
+from torch import nn
+from torchvision import models
+
+vgg = models.vgg16(weights=models.VGG16_Weights.DEFAULT)
+
+backbone = nn.Sequential(
+  # vgg.features            => returns all layers prior to the flattening operation as blocks of layers
+  # vgg.features.children() => returns all layers as a list of layers
+  *list(vgg.features.children())
+)
+
+input_dimension = backbone[0].out_features
+
+classifier = nn.Sequential(
+  nn.Linear(input_dimension, 512),
+  nn.ReLU(),
+  nn.Linear(512, num_classes),
+)
+
+bbox_regressor = nn.Sequential(
+  nn.Linear(input_dimension, 32),
+  nn.ReLU(),
+  nn.Linear(32, 4),
+)
+```
+
+### Evaluating object detection models
+
+#### Intersection over union (IoU)
+
+<details>
+<summary>Can you infer what IoU calculates to evaluate the quality of object detection models?</summary>
+
+- **Object of interest**: object in image we want to detect (e.g. dog).
+- **Ground truth box**: the accurate bounding box around the object of interest.
+- **Intersection over Union**: Measure the overlap between predicted bounding box and ground-truth bounding box.
+
+![w06_iou_example.png](assets/w06_iou_example.png "w06_iou_example.png")
+
+<details>
+<summary>If IoU is 0, this means that ...</summary>
+
+there is no overlap; the model is bad.
+
+</details>
+
+<details>
+<summary>If IoU is 1, this means that ...</summary>
+
+there is perfect overlap; the model is perfect.
+
+Often $0.5$ is used as a threshold, i.e. if IoU >= 0.5, this is regarded as a correct prediction of a bounding box.
+
+</details>
+
+</details>
+
+<details>
+<summary>Knowing this is IoU a metric or part of the loss function?</summary>
+
+IoU is a metric.
+
+</details>
+
+<details>
+<summary>Open the paper and find a section in which the authors say what metric they use.</summary>
+
+- `mAP` - [mean Average Precision](https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Mean_average_precision)
+- Is [related](https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Average_precision) to the area under the precision-recall curve.
+
+![w06_rcnn_metric.png](assets/w06_rcnn_metric.png "w06_rcnn_metric.png")
+
+</details>
+
+#### IoU in PyTorch
+
+Again, we have a built-in function: [`ops.box_iou`](https://pytorch.org/vision/0.20/generated/torchvision.ops.box_iou.html#torchvision.ops.box_iou).
+
+```python
+import torch
+from torchvision import ops
+
+bbox1 = torch.tensor([50, 50, 150, 150]).unsqueeze(0)
+bbox2 = torch.tensor([100, 100, 200, 200]).unsqueeze(0)
+
+print(ops.box_iou(bbox1, bbox2))
+```
+
+```console
+tensor([[0.1429]])
+```
+
+### Non-maximum suppression (NMS)
+
+<details>
+<summary>What have you heard of NMS?</summary>
+
+Object detection models may generate many bounding boxes and some of them may be overlapping near-duplicates.
+
+![w06_nms_example2.png](assets/w06_nms_example2.png "w06_nms_example2.png")
+
+NMS is a technique to select the most relevant bounding boxes:
+
+- **Non-max**: Pick the box with highest probability and discard other boxes.
+- **Suppression**: Discard all boxes that have high overlap with the box with most confidence.
+
+![w06_nms_example.png](assets/w06_nms_example.png "w06_nms_example.png")
+
+</details>
+
+In PyTorch we can use the function [`ops.nms`](https://pytorch.org/vision/0.20/generated/torchvision.ops.nms.html#torchvision.ops.nms):
+
+- **Boxes**: tensors with the bounding box coordinates of the shape $[N, 4]$.
+- **Scores**: tensor with the confidence score for each box of the shape $[N]$.
+- **iou_threshold**: the threshold between $0.0$ and $1.0$.
+- Output: indices of filtered bounding boxes.
+
+```python
+from torchvision import ops
+
+box_indices = ops.nms(
+  boxes=boxes,
+  scores=scores,
+  iou_threshold=0.5,
+)
+box_indices
+```
+
+```console
+tensor([ 0,  1,  2,  8])
+```
+
+```python
+filtered_boxes = boxes[box_indices]
+```
+
+### Faster R-CNN model: an advanced version of R-CNN
+
+Paper: <https://arxiv.org/abs/1506.01497>.
+
+#### Faster R-CNN architecture
+
+- Module 1: Convolutional layers (backbone): obtain feature maps.
+- Module 2: Region proposal network (RPN): get bounding box proposals on the feature maps.
+- Module 3: Classifier and regressor to produce predictions.
+
+![w06_faster_rcnn_architecture.png](assets/w06_faster_rcnn_architecture.png "w06_faster_rcnn_architecture.png")
+
+#### Region Proposal Network (RPN)
+
+- Anchor generator: Generate a set of anchor boxes of different sizes and aspect ratios.
+- Classifier and regressor: Predict if the box contains an object and provide coordinates.
+- Region of interest (RoI) pooling: Resize the RPN proposal to a fixed size for fully connected layers.
+
+![w06_rpn.png](assets/w06_rpn.png "w06_rpn.png")
+
+```python
+from torchvision.models.detection import rpn
+
+anchor_generator = rpn.AnchorGenerator(
+  sizes=((32, 64, 128), ),
+  aspect_ratios=((0.5, 1.0, 2.0), ),
+)
+```
+
+```python
+from torchvision import ops
+
+roi_pooler = ops.MultiScaleRoIAlign( # https://pytorch.org/vision/main/generated/torchvision.ops.MultiScaleRoIAlign.html#multiscaleroialign
+  featmap_names=['0'], # the first layer labeled '0' in our backbone architecture
+  output_size=7,
+  sampling_ratio=2, # how many samples are taken from each bin when pooling
+)
+```
+
+```python
+from torchvision.models.detection import FasterRCNN
+
+backbone = torchvision.models.mobilenet_v2(weights='DEFAULT').features
+backbone.out_channels = 1280
+
+model = FasterRCNN(
+  backbone=backbone,
+  num_classes=num_classes,
+  rpn_anchor_generator=anchor_generator,
+  box_roi_pool=roi_pooler,
+)
+```
+
+We can also use a pre-trained `Faster R-CNN` without manually extracting a backbone from a different model:
+
+```python
+from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+
+num_classes = 5
+
+model = torchvision.models.detection.faster_rcnn_resnet50_fpn(weights='DEFAULT')
+in_features = model.roi_heads.box_predictor.cls_score.in_features
+
+model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+```
+
+### Running object recognition on a single image
+
+1. Load and transform the image.
+2. `unsqueeze()` the image to add batch dimension.
+3. Pass the image tensor to the model.
+4. Run `nms()` over model's output.
+5. `draw_bounding_boxes()` on top of the image.
