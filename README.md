@@ -61,7 +61,7 @@ The split in groups is formal. You can come whenever it suits you.
 
 - [ ] Homework 1: 04/05.04 - 04.05.
 - [ ] Homework 2: 09/10.05 - 01.06.
-- [ ] Exam: 12.04 or 13.04. Room: ???.
+- [ ] Exam: after Easter, early May? (exact date still unclear). Room: ???.
 - [ ] Projects: 08.05 - date of defense.
 
 ## Resources
