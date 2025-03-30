@@ -425,11 +425,11 @@ def main() -> None:
         'actual_mul_r': 2.0 * x,
         'actual_div_r': (x + 6.0) / 2.0,
         'actual_pow_l': x**2,
-        'actual_exp_e': x**2,
     }
 
     assert x.exp().data == np.exp(
-        2), f"Mismatch for exponentiating Euler's number: expected {np.exp(2)}, but got {x.exp().data}."
+        2
+    ), f"Mismatch for exponentiating Euler's number: expected {np.exp(2)}, but got {x.exp().data}."
 
     for actual_name, actual_value in actuals.items():
         assert actual_value.data == expected.data, f'Mismatch for {actual_name}: expected {expected.data}, but got {actual_value.data}.'

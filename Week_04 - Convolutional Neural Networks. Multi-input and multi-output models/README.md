@@ -323,7 +323,7 @@ Average training loss per epoch: 1.2627965263525645
 
 **Description:**
 
-In this task we'll add more metrics to the process in `Task 02` and track how our model performs on the test set.
+In this task we'll add more metrics to the process in `Task 06` and track how our model performs on the test set.
 
 Firstly, let's log how much is the total time needed to train the model. Use the `time` module and more specifically the function `time.time()`.
 
