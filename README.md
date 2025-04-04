@@ -30,8 +30,8 @@ The split in groups is formal. You can come whenever it suits you.
    1. Group 1: :white_check_mark: 24.03, Monday, 7:15 pm, 107
    2. Group 2: :white_check_mark: 25.03, Tuesday, 7:30 pm, 120
 7. Session 07:
-   1. Group 1: 31.03, Monday, 7:15 pm, 107
-   2. Group 2: 01.04, Tuesday, 7:30 pm, 120
+   1. Group 1: :white_check_mark: 31.03, Monday, 7:15 pm, 107
+   2. Group 2: :white_check_mark: 01.04, Tuesday, 7:30 pm, 120
 8. Session 08:
    1. Group 1: 07.04, Monday, 7:15 pm, 107
    2. Group 2: 08.04, Tuesday, 7:30 pm, 120
@@ -61,8 +61,8 @@ The split in groups is formal. You can come whenever it suits you.
 
 - [ ] Homework 1: 04/05.04 - 04.05.
 - [ ] Homework 2: 09/10.05 - 01.06.
-- [ ] Exam: after Easter, early May? (exact date still unclear). Room: ???.
-- [ ] Projects: 08.05 - date of defense.
+- [ ] Exam: 03.05. Room: ???.
+- [ ] Projects: [08.05 .. date of defense]
 
 ## Resources
 
