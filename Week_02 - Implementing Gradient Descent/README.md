@@ -169,7 +169,7 @@ edges={(Value(data=-6.0), Value(data=4.0)), (Value(data=10.0), Value(data=4.0)),
 
 **Description:**
 
-Let's visualize the directed acyclic graph (`DAG`) leading up to a certain value. We'll be using the Python package [graphviz](https://pypi.org/project/graphviz/). Note, that before installing it with `pip`, you should have `graphviz` installed on your operating system. Graphviz is available for installation [here](https://graphviz.org/download/). After installing, run the command `pip install graphiviz`.
+Let's visualize the directed acyclic graph (`DAG`) leading up to a certain value. We'll be using the Python package [graphviz](https://pypi.org/project/graphviz/). Note, that before installing it with `pip`, you should have `graphviz` installed on your operating system. Graphviz is available for installation [here](https://graphviz.org/download/). After installing, run the command `pip install graphviz`.
 
 Add the following code and ensure the test case runs successfully. Note that if by now you've run all scripts from the integrated terminal in vscode, you should now run this script from a terminal/command prompt that is **not** in VSCode.
 
