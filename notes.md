@@ -3103,6 +3103,15 @@ init.kaiming_uniform_(layer.weight) # https://pytorch.org/docs/stable/nn.init.ht
 - Available as [`nn.BatchNorm1d`](https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm1d.html).
   - **Note 1:** The number of features has to be equal to the number of output neurons of the previous layer.
   - **Note 2:** Done after applying layer and before the activation.
+- `BatchNorm1d` vs `BatchNorm2d`:
+  - Mathematically, there is no difference between them:
+    - <https://discuss.pytorch.org/t/why-2d-batch-normalisation-is-used-in-features-and-1d-in-classifiers/88360>;
+    - <https://github.com/christianversloot/machine-learning-articles/blob/main/batch-normalization-with-pytorch.md>.
+  - [`BatchNorm1d`](https://pytorch.org/docs/main/generated/torch.nn.BatchNorm1d.html): Applies Batch Normalization over a `2D` or `3D` input.
+  - [`BatchNorm2d`](https://pytorch.org/docs/main/generated/torch.nn.BatchNorm2d.html): Applies Batch Normalization over a `4D` input.
+  - In general:
+    - Whenever the previous layer handles image data with convolutions, we use `BatchNorm2d` (as each sample in the batch has `3` channels whole batch is `4D`).
+    - Whenever the previous layer is `Linear`, we use `BatchNorm1d`.
 
 ## The Clouds dataset
 
