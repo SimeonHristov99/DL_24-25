@@ -234,6 +234,14 @@
       - [Pre-trained Mask R-CNN in PyTorch](#pre-trained-mask-r-cnn-in-pytorch)
       - [Soft masks](#soft-masks)
   - [Panoptic segmentation](#panoptic-segmentation)
+- [Week 08 - Generative Adversarial Nets](#week-08---generative-adversarial-nets)
+  - [What are GANs?](#what-are-gans)
+  - [Pokemon Sprites Dataset](#pokemon-sprites-dataset)
+  - [Training GANs](#training-gans)
+  - [Evaluating GANs](#evaluating-gans)
+    - [Fréchet Inception Distance](#fréchet-inception-distance)
+  - [Deep Convolutional GAN](#deep-convolutional-gan)
+  - [Linearly interpolating corrdinates in $z$ space](#linearly-interpolating-corrdinates-in-z-space)
 
 # Week 01 - Hello, Deep Learning. Implementing a Multilayer Perceptron
 
@@ -6311,3 +6319,566 @@ for mask in instance_masks:
 ```
 
 </details>
+
+# Week 08 - Generative Adversarial Nets
+
+!!! Updated schedule for the exam updates.
+
+## What are GANs?
+
+- Paper: <https://arxiv.org/pdf/1406.2661>.
+
+<details>
+<summary>Open the paper and find a section that describes the whole idea and whole architecture of GANs.</summary>
+
+![w08_gan_p01.png](assets/w08_gan_p01.png "w08_gan_p01.png")
+
+</details>
+
+<details>
+<summary>Read through the paper and find the section in which the authors describe what the input to the generative model "G" is.</summary>
+
+![w08_gan_p12.png](assets/w08_gan_p12.png "w08_gan_p12.png")
+
+</details>
+
+<details>
+<summary>Draw the architecture of a GAN.</summary>
+
+![w08_gan_architecture.png](assets/w08_gan_architecture.png "w08_gan_architecture.png")
+
+</details>
+
+<details>
+<summary>What is the goal of the "Discriminator"?</summary>
+
+The `Discriminator` is trying to distinguish between `real` and `fake` inputs.
+
+</details>
+
+<details>
+<summary>What is the goal of the "Generator"?</summary>
+
+The `Generator` is trying to fool the `Discriminator` ("maximize the probability of $D$ making a mistake").
+
+</details>
+
+<details>
+<summary>Why is this process guaranteed to work?</summary>
+
+- This is essentially a minimax two-player game and on each turn both models are becoming better.
+- Conflicting objectives ensure each network gets better at its task.
+
+</details>
+
+<details>
+<summary>So what is the goal of GANs?</summary>
+
+- Generate new samples based on training data that look like samples from that training data.
+- Examples: <https://thesecatsdonotexist.com/>.
+
+</details>
+
+<details>
+<summary>What is the most prominent difference with what we've seen so far? / What makes this paper truly novel?</summary>
+
+- There is no connection between the `Generator` and the training data.
+- Let's use the power of a really good discriminator model (which we know how to build (recall, Imagenet)) in order to train a generator.
+
+![w08_imagenet_discriminators.png](assets/w08_imagenet_discriminators.png "w08_imagenet_discriminators.png")
+
+</details>
+
+<details>
+<summary>Open the paper and find the real-world analogy the authors use to explain GANs.</summary>
+
+![w08_gan_p02.png](assets/w08_gan_p02.png "w08_gan_p02.png")
+
+</details>
+
+<details>
+<summary>Open the paper and find the section in which the authors describe "adversarial nets" - what kind of architecture do they describe?</summary>
+
+A network in which only `nn.Linear` layers are employed.
+
+![w08_gan_p03.png](assets/w08_gan_p03.png "w08_gan_p03.png")
+
+</details>
+
+<details>
+<summary>Create such an architecture.</summary>
+
+![w08_gan_architecture_low_level.png](assets/w08_gan_architecture_low_level.png "w08_gan_architecture_low_level.png")
+
+- `BatchNorm1d` vs `BatchNorm2d`:
+  - Mathematically, there is no difference between them:
+    - <https://discuss.pytorch.org/t/why-2d-batch-normalisation-is-used-in-features-and-1d-in-classifiers/88360>;
+    - <https://github.com/christianversloot/machine-learning-articles/blob/main/batch-normalization-with-pytorch.md>.
+  - [`BatchNorm1d`](https://pytorch.org/docs/main/generated/torch.nn.BatchNorm1d.html): Applies Batch Normalization over a `2D` or `3D` input.
+  - [`BatchNorm2d`](https://pytorch.org/docs/main/generated/torch.nn.BatchNorm2d.html): Applies Batch Normalization over a `4D` input.
+  - In general:
+    - Whenever the previous layer handles image data with convolutions, we use `BatchNorm2d` (as each sample in the batch has `3` channels whole batch is `4D`).
+    - Whenever the previous layer is `Linear`, we use `BatchNorm1d`.
+
+</details>
+
+<details>
+<summary>So what does the Generator take as input?</summary>
+
+- `Generator` receives a tensor of random values drawn from a standard normal distribution.
+  - This acts as a `seed`.
+  - Produces output based on that random noise.
+
+</details>
+
+Which of the following best describes the fundamental principle behind Generative Adversarial Networks (GANs)?
+
+A. GANs utilize a single neural network that is trained to generate new data that matches the data from a training dataset.
+B. GANs consist of a pair of neural networks that are trained in a collaborative manner to generate new data.
+C. GANs employ two neural networks that are trained simultaneously through adversarial training, with the objective to create new data that is indistinguishable from real data.
+D. GANs use a sequence of neural networks to transform raw data for easier analysis or visualization.
+
+<details>
+<summary>Reveal answer</summary>
+
+C.
+
+</details>
+
+## Pokemon Sprites Dataset
+
+![w08_sprites_example.png](assets/w08_sprites_example.png "w08_sprites_example.png")
+
+- Available in our `DATA` folder as `pokemon_sprites`.
+- About `1300` sprites of animal-like creatures from a video game called Pokemon.
+- Our task: Generate new Pokemons!
+
+## Training GANs
+
+<details>
+<summary>Open the paper and find the name of the section in which the loss function is shown.</summary>
+
+Section `3 Adversarial nets`.
+
+</details>
+
+<details>
+<summary>Open the paper and find the loss function.</summary>
+
+![w08_gan_p04.png](assets/w08_gan_p04.png "w08_gan_p04.png")
+
+</details>
+
+<details>
+<summary>What known to us loss function does it resemble?</summary>
+
+Cross-entropy, more specifically - binary cross entropy! And it doesn't just resemble it - it is it!
+
+$${\displaystyle J(\mathbf {w} )\ =\ {\frac {1}{N}}\sum _{n=1}^{N}H(p_{n},q_{n})\ =\ -{\frac {1}{N}}\sum _{n=1}^{N}\ {\bigg [}y_{n}\log {\hat {y}}_{n}+(1-y_{n})\log(1-{\hat {y}}_{n}){\bigg ]}\,}$$
+
+</details>
+
+<details>
+<summary>We do we have E instead of sum?</summary>
+
+- $E$ stands for expectation here.
+- We have expectation because we're only taking random training samples - we're not iterating over all of the samples (at least in the implementation the authors are proposing).
+
+</details>
+
+<details>
+<summary>What is the "Discriminator" trying to do with the value of the loss function?</summary>
+
+It's trying to maximize it.
+
+</details>
+
+![w08_gan_p06.png](assets/w08_gan_p06.png "w08_gan_p06.png")
+
+<details>
+<summary>What does the above part mean?</summary>
+
+The probability of predicting `real` samples as `real`.
+
+</details>
+
+![w08_gan_p05.png](assets/w08_gan_p05.png "w08_gan_p05.png")
+
+<details>
+<summary>What does the above part mean?</summary>
+
+The probability of predicting `fake` samples as `fake`.
+
+</details>
+
+<details>
+<summary>What is "z"?</summary>
+
+- These are the parameters of the noise distribution.
+- $p_z(z)$ is the probability distribution from which we sample the noise.
+- This makes sure that we are able to generate different noise every time (because the generator must be able to generate new images).
+
+</details>
+
+<details>
+<summary>What is "G(z)"?</summary>
+
+The output of the `Generator` when receiving the noise $z$.
+
+</details>
+
+<details>
+<summary>What is "D(G(z))"?</summary>
+
+The probability that the `Discriminator` assigns to the output of the `Generator` when it received the noise $z$.
+
+</details>
+
+<details>
+<summary>What is the "Generator" trying to do with the value of the loss function?</summary>
+
+It's trying to minimize it.
+
+</details>
+
+<details>
+<summary>Which part of the loss function is the "Generator" concerned with?</summary>
+
+Only the second as the first is constant.
+
+</details>
+
+<details>
+<summary>What does it mean on an intuitive level that the "Generator" is minimizing the loss function?</summary>
+
+- It's trying to make the output of the `Generator` small.
+- This means that probability of the `Generator` predicting samples from the `Discriminator` as `fake` is small.
+- This means that $1 - D(G(z))$ will be close to $1$.
+- This means that the value for the $\log$ will be high:
+
+![w08_graph_log.png](assets/w08_graph_log.png "w08_graph_log.png")
+
+</details>
+
+![w08_gan_p07.png](assets/w08_gan_p07.png "w08_gan_p07.png")
+
+<details>
+<summary>What does this mean - are we first obtaining the best possible discriminator and only then training the generator - what does the paper say?</summary>
+
+- We can't train a generator if the discriminator is perfect.
+- This is why we play it as if it were a game:
+  - We train the discriminator a little bit ($k$ steps).
+  - We train the generator a little bit ($1$ step).
+
+![w08_gan_p08.png](assets/w08_gan_p08.png "w08_gan_p08.png")
+
+</details>
+
+<details>
+<summary>What is one problem with "equation (1)" and how do the authors solve it?</summary>
+
+- If the discriminator is really good, i.e. $D(G(z)) \approx 0 , ∀z$, the loss becomes $\log(0.99..) \approx 0$ and there is very little gradient for the generator.
+- Thus, they replace $\log(1-D(G(z)))$ with $\log(D(G(z)))$.
+  - The model now maximizes the value of the $\log(D(G(z)))$.
+- Note that in the above formulation, the Generator learns (has a gradient) only when the Discriminator classifies a generated image as real.
+  - We'll implement this part a bit differently.
+
+![w08_gan_p09.png](assets/w08_gan_p09.png "w08_gan_p09.png")
+
+</details>
+
+Here's an illustration of how training might look like:
+
+![w08_gan_p10.png](assets/w08_gan_p10.png "w08_gan_p10.png")
+
+<details>
+<summary>What is are the black dots?</summary>
+
+The true data distribution.
+
+</details>
+
+<details>
+<summary>What is the "z" again?</summary>
+
+The noise distribution.
+
+</details>
+
+<details>
+<summary>How is "z" distributed?</summary>
+
+Uniformly.
+
+</details>
+
+<details>
+<summary>How does "z" get transformed into "x"?</summary>
+
+This mapping is done by the generator.
+
+</details>
+
+<details>
+<summary>What is the green line?</summary>
+
+The distribution of the fake samples.
+
+</details>
+
+<details>
+<summary>What is the blue line?</summary>
+
+The probability assigned by the discriminator on whether a sample is real.
+
+</details>
+
+<details>
+<summary>So what does the figure show?</summary>
+
+1. Initially, we start with a random discriminator.
+2. We maximize $D$ a little bit to get $(b)$.
+3. We now train the $G$ to go up the gradient of $D$.
+4. In $(d)$ the probability, assigned by $D$ is actually $1/2$.
+
+</details>
+
+<details>
+<summary>But does this mean that the generator just overfits the training data?</summary>
+
+No.
+
+1. The training data is discrete, while the generator is a continuos, smooth function.
+2. It doesn't even see the training data.
+
+</details>
+
+<details>
+<summary>Which section has the algorithm?</summary>
+
+![w08_gan_p11.png](assets/w08_gan_p11.png "w08_gan_p11.png")
+
+</details>
+
+<details>
+<summary>What are the steps to obtain the generator loss?</summary>
+
+1. Define random noise.
+2. Generate fake image.
+3. Get discriminator's prediction on the fake image.
+4. Use the binary cross-entropy loss: BCE between discriminator predictions and a tensor of ones.
+
+```python
+def gen_loss(gen, disc, num_images, z_dim):
+  noise = torch.randn(num_images, z_dim)
+  fake = gen(noise)
+  disc_pred = disc(fake)
+  criterion = nn.BCEWithLogitsLoss()
+  gen_loss = criterion(disc_pred, torch.ones_like(disc_pred))
+  return gen_loss
+```
+
+</details>
+
+<details>
+<summary>What are the steps to obtain the discriminator loss then?</summary>
+
+1. Define random noise.
+2. Generate fake images.
+3. Get discriminator's prediction on the fake images.
+4. Calculate the fake loss component.
+5. Get discriminator's predictions for real images.
+6. Calculate read loss component.
+7. Final loss is the average between the real and fake loss components.
+
+```python
+def disc_loss(gen, disc, real, num_images, z_dim):
+  criterion = nn.BCEWithLogitsLoss()
+  noise = torch.randn(num_images, z_dim)
+  fake = gen(noise)
+  disc_pred_fake = disc(fake)
+  fake_loss = criterion(
+    disc_pred_fake,
+    torch.zeros_like(disc_pred_fake)
+  )
+  disc_pred_real = disc(real)
+  real_loss = criterion(
+    disc_pred_real,
+    torch.ones_like(disc_pred_real)
+  )
+  disc_loss = (real_loss + fake_loss) / 2
+  return disc_loss
+```
+
+</details>
+
+<details>
+<summary>What are the steps to execute in the training loop?</summary>
+
+1. Loop over epochs and real data batches and compute current batch size.
+2. Reset discriminator optimizer's gradients.
+3. Compute discriminator loss.
+4. Compute discriminator gradients and perform the optimization step.
+5. Reset generator optimizer's gradients.
+6. Compute generator loss.
+7. Compute generator gradients and perform the optimization step.
+
+```python
+for epoch in range(num_epochs):
+  for real in dataloader:
+    cur_batch_size = len(real)
+
+    disc_opt.zero_grad()
+    disc_loss_out = disc_loss(
+      gen, disc, real, cur_batch_size, z_dim=16
+    )
+    disc_loss_out.backward()
+    disc_opt.step()
+
+    gen_opt.zero_grad()
+    gen_loss_out = gen_loss(
+      gen, disc, cur_batch_size, z_dim=16
+    )
+    gen_loss_out.backward()
+    gen_opt.step()
+```
+
+</details>
+
+## Evaluating GANs
+
+<details>
+<summary>How can we evaluate a GAN visually?</summary>
+
+1. Create random noise.
+2. Pass noise to generator.
+3. Iterate over number of images.
+4. Slice to select $i^{th}$ image.
+5. Rearrange the image dimensions so that color channel is last.
+6. Plot the image.
+
+```python
+num_images_to_generate = 9
+noise = torch.randn(num_images_to_generate, 16)
+with torch.no_grad():
+  fake = gen(noise)
+print(f'Generated shape: {fake.shape}')
+```
+
+```console
+Generate shape: torch.Size([9, 3, 96, 96])
+```
+
+```python
+for i in range(num_images_to_generate):
+  image_tensor = fake[i, :, :, :]
+  image_permuted = image_tensor.permute(1, 2, 0)
+  plt.imshow(image_permuted)
+  plt.show()
+```
+
+![w08_gan_result.png](assets/w08_gan_result.png "w08_gan_result.png")
+
+</details>
+
+<details>
+<summary>How did the authors perform evaluation?</summary>
+
+Back then (and mostly today as well) there actually was no clear way to evaluate these models.
+
+![w08_gan_p14.png](assets/w08_gan_p14.png "w08_gan_p14.png")
+![w08_gan_p15.png](assets/w08_gan_p15.png "w08_gan_p15.png")
+
+</details>
+
+<details>
+<summary>With which figure do the authors detail their 4 experiments?</summary>
+
+Most of their experiments were done via `Linear` models, but they also had the foresight to try out an encoder-decoder approach!
+
+![w08_gan_p13.png](assets/w08_gan_p13.png "w08_gan_p13.png")
+
+</details>
+
+### [Fréchet Inception Distance](https://lightning.ai/docs/torchmetrics/stable/image/frechet_inception_distance.html)
+
+- A metric commonly used to evaluate GANs.
+  - Note: lower = better!
+- [Inception](https://en.wikipedia.org/wiki/Inception_(deep_learning_architecture)): a popular image classification model.
+- Fréchet distance: Distance measure between two probability distributions.
+- Fréchet Inception Distance:
+  1. Use Inception to extract features from both real and fake images samples.
+  2. Calculate means and covariances of the features for real and fake images.
+  3. Calculate Fréchet distance between the real and the fake normal distributions.
+- Low FID = fakes similar to training data ***and diverse***.
+- Guidekine: `FID < 10` = `good`.
+
+```python
+from torchmetrics.image import fid
+
+# use the sixty-fourth layer of the Inception model for feature extraction
+# a different one can be used, too
+fidist = fid.FrechetInception.Distance(feature=64)
+
+# * 255 => convert the pixel values to integers between 0 and 255 (we have floats between 0 and 1)
+fidist.update(
+  (fake * 255).to(torch.uint8), real=False
+)
+fidist.update(
+  (real * 255).to(torch.uint8), real=True
+)
+
+fid.compute()
+```
+
+```console
+tensor(7.5159)
+```
+
+## Deep Convolutional GAN
+
+- Paper: Unsupervised Representation Learning with Deep Convolutional Generative Adversarial Networks, <https://arxiv.org/pdf/1511.06434>.
+  - "Historical attempts to scale up GANs using CNNs to model images have been unsuccessful."
+  - Convolutional layers provide better results when processing images than basic linear layers.
+
+<details>
+<summary>Intuitively, what changes would we introduce in the architecture?</summary>
+
+- In `Discriminator` replace linear layers with regular convolutions.
+- In `Generator` use transposed convolutions to upsample the feature maps.
+
+</details>
+
+- Training GANs, however, is often unstable - you'll see this in this week's tasks. More adjustments are needed.
+- Guidelines:
+  1. Use only strided convolutions.
+  2. Don't use any linear or pooling layers. "Let the network learn its own downsampling algorithm."
+  3. Use batch normalization.
+  4. Use `ReLU` activations in the all-but-last layers of the `Generator`.
+  5. Last layer of `Generator` uses `tanh`.
+  6. Use `Leaky ReLU` in the `Discriminator`.
+
+![w08_dcgan_activations.png](assets/w08_dcgan_activations.png "w08_dcgan_activations.png")
+
+<table style="width:100%; table-layout:fixed;">
+  <tr>
+    <td><img width="150px" src="assets/w07_no_padding_no_strides.gif"></td>
+    <td><img width="150px" src="assets/w07_arbitrary_padding_no_strides.gif"></td>
+    <td><img width="150px" src="assets/w07_no_padding_strides.gif"></td>
+  </tr>
+  <tr>
+    <td>No padding, no strides</td>
+    <td>Arbitrary padding, no strides</td>
+    <td>No padding, strides</td>
+  </tr>
+</table>
+
+The modified networks would therefore look as follows:
+
+![w08_gcgan_architecture_low_level.png](assets/w08_gcgan_architecture_low_level.png "w08_gcgan_architecture_low_level.png")
+
+## Linearly interpolating corrdinates in $z$ space
+
+Using the power of GANs we can see how they morph between states:
+
+![w08_gan_p16.png](assets/w08_gan_p16.png "w08_gan_p16.png")
