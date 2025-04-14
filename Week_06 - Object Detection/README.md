@@ -68,7 +68,7 @@ Follow the standard process for creating, training and evaluation at least four 
 
 Before you start modelling the data make sure you perform:
 
-- data splitting: from the dataset folder, labelled `Training`, perform random shuffling and splitting to obtain `training` and `validation` sets.
+- data splitting: from the dataset folder, labelled `Testing`, perform random shuffling and splitting to obtain `training` and `validation` sets.
 - exploratory data analysis:
   - show `5` images of each class;
   - show the class distribution in all three sets;
