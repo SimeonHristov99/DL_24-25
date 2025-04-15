@@ -242,6 +242,62 @@
     - [Fréchet Inception Distance](#fréchet-inception-distance)
   - [Deep Convolutional GAN](#deep-convolutional-gan)
   - [Linearly interpolating corrdinates in $z$ space](#linearly-interpolating-corrdinates-in-z-space)
+- [Week 09 - Recurrent Neural Networks. Language Models](#week-09---recurrent-neural-networks-language-models)
+  - [Sequential data](#sequential-data)
+  - [Electricity consumption prediction](#electricity-consumption-prediction)
+  - [Recurrent Neural Networks (RNNs)](#recurrent-neural-networks-rnns)
+    - [The recurrent neuron](#the-recurrent-neuron)
+      - [Internals of the `RNN` cell](#internals-of-the-rnn-cell)
+      - [Unrolling through time](#unrolling-through-time)
+      - [Deep RNNs](#deep-rnns)
+    - [Architecture types](#architecture-types)
+      - [Sequence-to-sequence architecture](#sequence-to-sequence-architecture)
+      - [Sequence-to-vector architecture](#sequence-to-vector-architecture)
+      - [Vector-to-sequence architecture](#vector-to-sequence-architecture)
+      - [Encoder-decoder architecture](#encoder-decoder-architecture)
+      - [Choosing the right architecture for the problem](#choosing-the-right-architecture-for-the-problem)
+    - [The problem with using plain RNNs the model sequential data](#the-problem-with-using-plain-rnns-the-model-sequential-data)
+    - [Internals of the `GRU` cell](#internals-of-the-gru-cell)
+    - [Internals of the `LSTM` cell](#internals-of-the-lstm-cell)
+    - [Should I use RNN, LSTM, or GRU?](#should-i-use-rnn-lstm-or-gru)
+  - [Large Language Models](#large-language-models)
+    - [Using HuggingFace models](#using-huggingface-models)
+      - [Summarization](#summarization)
+      - [Text Generation](#text-generation)
+        - [Prompt Engineering](#prompt-engineering)
+      - [Language Translation](#language-translation)
+    - [What is a Transformer?](#what-is-a-transformer)
+      - [Encoder-only](#encoder-only)
+      - [Decoder-only](#decoder-only)
+      - [Encoder-decoder](#encoder-decoder)
+      - [Transfomer: Checkpoint](#transfomer-checkpoint)
+    - [Preparing for fine-tuning](#preparing-for-fine-tuning)
+      - [Auto Classes](#auto-classes)
+      - [LLM Development Lifecycle](#llm-development-lifecycle)
+    - [Loading a dataset for fine-tuning and tokenizing it](#loading-a-dataset-for-fine-tuning-and-tokenizing-it)
+    - [Training "loop"](#training-loop)
+    - [Saving and loading models and tokenizers](#saving-and-loading-models-and-tokenizers)
+    - [Using the fine-tuned model](#using-the-fine-tuned-model)
+    - [Fine-tuning approaches](#fine-tuning-approaches)
+      - [Full fine-tuning](#full-fine-tuning)
+      - [Partial fine-tuning](#partial-fine-tuning)
+    - [Fine-Tuning vs Transfer Learning](#fine-tuning-vs-transfer-learning)
+    - [N-shot learning](#n-shot-learning)
+    - [Evaluating LLMs](#evaluating-llms)
+      - [The `evaluate` library](#the-evaluate-library)
+      - [Text classification metrics](#text-classification-metrics)
+      - [Text generation metrics](#text-generation-metrics)
+        - [Perplexity](#perplexity)
+        - [Bilingual Evaluation Understudy (`BLEU`)](#bilingual-evaluation-understudy-bleu)
+      - [Summarization metrics](#summarization-metrics)
+        - [Recall-Oriented Understudy for Gisting Evaluation (`ROUGE`)](#recall-oriented-understudy-for-gisting-evaluation-rouge)
+      - [Translation metrics](#translation-metrics)
+        - [Metric for Evaluation of Translation with Explicit ORdering (`METEOR`)](#metric-for-evaluation-of-translation-with-explicit-ordering-meteor)
+      - [Question-answering metrics](#question-answering-metrics)
+        - [Extractive QA](#extractive-qa)
+          - [Exact Match (EM)](#exact-match-em)
+        - [Generative QA](#generative-qa)
+      - [Summary diagram](#summary-diagram)
 
 # Week 01 - Hello, Deep Learning. Implementing a Multilayer Perceptron
 
@@ -6322,8 +6378,6 @@ for mask in instance_masks:
 
 # Week 08 - Generative Adversarial Nets
 
-!!! Updated schedule for the exam updates.
-
 ## What are GANs?
 
 - Paper: <https://arxiv.org/pdf/1406.2661>.
@@ -6882,3 +6936,1409 @@ The modified networks would therefore look as follows:
 Using the power of GANs we can see how they morph between states:
 
 ![w08_gan_p16.png](assets/w08_gan_p16.png "w08_gan_p16.png")
+
+# Week 09 - Recurrent Neural Networks. Language Models
+
+## Sequential data
+
+<details>
+
+<summary>What is sequential data?</summary>
+
+- **Ordered** in time or space.
+- Having an order between the data points, means that there is an **implicit dependency** between them.
+
+</details>
+
+<details>
+
+<summary>Give three examples of sequential data.</summary>
+
+- Text.
+- Time series (stock market movements).
+
+![w09_sequential_data_examples.png](assets/w09_sequential_data_examples.png "w09_sequential_data_examples.png")
+
+- Audio waves.
+
+![w09_audio_waves.png](assets/w09_audio_waves.png "w09_audio_waves.png")
+
+</details>
+
+<details>
+
+<summary>What were the typical preprocessing steps we talked about?</summary>
+
+- Analyzing the data type.
+- Data statistics.
+- Data distribution.
+- Correlation analysis for feature elimination.
+- Train-test split.
+- Data scaling.
+- Missing value imputation or removal.
+- One-hot encoding.
+
+</details>
+
+<details>
+
+<summary>From the above which is not applicable when solving a problem involving sequential data?</summary>
+
+No random train-test splitting when working with sequential data!
+
+<details>
+
+<summary>Why?</summary>
+
+Introduces the problem of **look-ahead** bias in which the model has information about the future.
+
+</details>
+
+</details>
+
+<details>
+
+<summary>How can we solve this?</summary>
+
+1. We split by time, not by observation.
+
+![w09_split_by_time_example.png](assets/w09_split_by_time_example.png "w09_split_by_time_example.png")
+
+- Pros:
+  - Straightforward.
+  - Great for simple usecases.
+- Cons:
+  - Model becomes unreliable as OOT samples grow.
+
+2. Use a rolling window approach: take $n$ samples and predict the $n + 1$. **<- preferred**
+
+</details>
+
+## Electricity consumption prediction
+
+Let's tackle the problem of predicting electricity consumption based on past patterns. In our `DATA` folder you'll find the folder `electricity_consumption`. It contains electricity consumption in kilowatts, or kW, for a certain user recorded every 15 minutes for four years.
+
+![w09_dataset_example.png](assets/w09_dataset_example.png "w09_dataset_example.png")
+
+<details>
+
+<summary>What would a single training example even look like?</summary>
+
+- Our models will now take multiple rows of the data and try to predict the row that follows.
+- In other words, to feed the training data to the model, we need to chunk it first to create **sequences** that the model can use as training examples.
+
+</details>
+
+<details>
+
+<summary>Having understood this, what would the term "sequence length" mean?</summary>
+
+The number of features in one training example.
+
+![w09_seq_len_example.png](assets/w09_seq_len_example.png "w09_seq_len_example.png")
+
+</details>
+
+<details>
+
+<summary>If we wanted to base our prediction on the last 24 hours of consumption, what would be the sequence length of a single training example?</summary>
+
+Because the measurements are per $15$ minutes, $4$ measurements correspond to $1$ hour. To get $24$ hours, we would take $24 * 4 = 96$ samples.
+
+</details>
+
+## Recurrent Neural Networks (RNNs)
+
+### The recurrent neuron
+
+- So far, we've only seen feed-forward networks.
+- RNNs are a different class of networks that have connections pointing back at the same neuron.
+- Recurrent neuron:
+  - Input `x`.
+  - Output `y`.
+  - Hidden state `h`.
+- In PyTorch: `nn.RNN()`.
+
+![w09_rnn_example.png](assets/w09_rnn_example.png "w09_rnn_example.png")
+
+#### Internals of [the `RNN` cell](https://pytorch.org/docs/stable/generated/torch.nn.RNN.html)
+
+![w09_rnn_internals.png](assets/w09_rnn_internals.png "w09_rnn_internals.png")
+
+- Two inputs:
+  - current input data `x`;
+  - previous hidden state `h`.
+- Two outputs:
+  - current output `y`;
+  - next hidden state `h`.
+- What happens in the block `weights & activation` is subject to implementation - **different styles exist**:
+
+1. We can weigh the input and the hidden state and then sum them up (PyTorch style):
+
+```python
+class RNN:
+  # ...
+  def step(self, x):
+    # update the hidden state
+    self.h = np.tanh(np.dot(self.W_hh, self.h) + np.dot(self.W_xh, x))
+    # compute the output vector
+    y = np.dot(self.W_hy, self.h)
+    return y
+```
+
+2. We can also just concatenate them and pass them through a `nn.Linear` layer:
+
+![w09_rnn_internals_v2.gif](assets/w09_rnn_internals_v2.gif "w09_rnn_internals_v2.gif")
+
+#### Unrolling through time
+
+- The output at each time step depends on all the previous inputs.
+- Recurrent networks maintain **memory through time**, which allows them to handle sequential data well.
+
+![w09_unrolling_rnn.png](assets/w09_unrolling_rnn.png "w09_unrolling_rnn.png")
+
+![w09_unrolling_rnn2.gif](assets/w09_unrolling_rnn2.gif "w09_unrolling_rnn2.gif")
+
+#### Deep RNNs
+
+![w09_deep_rnn.png](assets/w09_deep_rnn.png "w09_deep_rnn.png")
+
+### Architecture types
+
+- Depending on the lengths of input and output sequences, we distinguish four different architecture types:
+  - `sequence-to-sequence` (`seq2seq`);
+  - `sequence-to-vector`;
+  - `vector-to-sequence`;
+  - `encoder-decoder`.
+
+#### Sequence-to-sequence architecture
+
+Pass sequence as input, use entire output sequence.
+
+![w09_seq2seq.png](assets/w09_seq2seq.png "w09_seq2seq.png")
+
+#### Sequence-to-vector architecture
+
+Pass sequence as input, use only the last output.
+
+![w09_seq2vec.png](assets/w09_seq2vec.png "w09_seq2vec.png")
+
+In PyTorch:
+
+```python
+class Net(nn.Module):
+  def __init__(self):
+    super().__init__()
+    self.rnn = nn.RNN(
+      input_size=96, # the number of features in the input
+      hidden_size=32, # a vector with 32 values for the memory
+      num_layers=2, # stacking two RNNs together to form a stacked RNN, with the second RNN taking in outputs of the first RNN and computing the final results
+      batch_first=True, # if True, then the input and output tensors are provided as (batch, seq, feature) instead of (seq, batch, feature)
+    )
+    self.fc = nn.Linear(32, 1)
+  
+  def forward(self, x):
+    h0 = torch.zeros(2, x.size(0), 32)
+    # 2 => The number of layers. Each layer has its own (unique) memory.
+    # x.size(0) => Batch size.
+    # 32 => Size of the memory.
+    out, h_n = self.rnn(x, h0) # x has to have shape (batch size, sequence length, num features) when batch_first=True
+    # The shape of "out" is (batch_size, sequence_length, hidden_size​).
+    #   Note that for each element in the sequence we get the hidden state.
+    # The shape of "h_n" is (batch_size, hidden_size) containing the final hidden state for each batch.
+    out = self.fc(out[:, -1, :])
+    return out
+```
+
+#### Vector-to-sequence architecture
+
+Pass single input, use the entire output sequence.
+
+![w09_vec2seq.png](assets/w09_vec2seq.png "w09_vec2seq.png")
+
+#### Encoder-decoder architecture
+
+Pass entire input sequence, only then start using output sequence.
+
+![w09_enc_dec.png](assets/w09_enc_dec.png "w09_enc_dec.png")
+
+#### Choosing the right architecture for the problem
+
+Whenever you face a task that requires handling sequential data, you need to be able to decide what type of recurrent architecture is the most suitable for the job. Classify each of the provided use cases to the most suitable recurrent neural network architecture.
+
+![w09_all_architectures.png](assets/w09_all_architectures.png "w09_all_architectures.png")
+
+<details>
+
+<summary>Based on a sequence of words, predict whether the sentiment is positive or negative.</summary>
+
+Sequence-to-vector.
+
+</details>
+
+<details>
+
+<summary>Translate text from Bulgarian to Greek.</summary>
+
+Encoder-decoder.
+
+</details>
+
+<details>
+
+<summary>Real-time speech recognition.</summary>
+
+Sequence-to-sequence.
+
+</details>
+
+<details>
+
+<summary>Non-real time speech recognition when the device first listens, and only then replies.</summary>
+
+Encoder-decoder.
+
+</details>
+
+<details>
+
+<summary>Image captioning: pass a representation of an image and get a caption for it.</summary>
+
+Vector-to-sequence.
+
+</details>
+
+<details>
+
+<summary>Based on the stock price in the last 30 days, predict the stock price today.</summary>
+
+Sequence-to-vector.
+
+</details>
+
+<details>
+
+<summary>Given a topic, generate text on this topic.</summary>
+
+Vector-to-sequence.
+
+</details>
+
+<details>
+
+<summary>Video classification on a frame level.</summary>
+
+Sequence-to-sequence.
+
+</details>
+
+### The problem with using plain RNNs the model sequential data
+
+<details>
+
+<summary>What do you think?</summary>
+
+- RNN cells maintain memory via the hidden state.
+- This memory, however, is very short-lived: plain RNNs suffer from the **short-term memory problem**.
+- Two more powerful cells solve this problem:
+  - The Long Short-Term Memory (`LSTM`) cell.
+  - The Gated Recurrent Unit (`GRU`) cell.
+
+</details>
+
+![w09_unstable_gradient.gif](assets/w09_unstable_gradient.gif "w09_unstable_gradient.gif")
+
+### Internals of [the `GRU` cell](https://pytorch.org/docs/stable/generated/torch.nn.GRU.html)
+
+![w09_gru_internals.png](assets/w09_gru_internals.png "w09_gru_internals.png")
+
+- Simplified version of the `LSTM` cell.
+- Just one hidden state.
+- No output gate.
+
+![w09_gru_internals2.png](assets/w09_gru_internals2.png "w09_gru_internals2.png")
+
+Example:
+
+```python
+rnn = nn.GRU(10, 20, 2)
+input_x = torch.randn(5, 3, 10)
+h0 = torch.randn(2, 3, 20)
+output, hn = rnn(input_x, h0)
+```
+
+![w09_gru_internals3.gif](assets/w09_gru_internals3.gif "w09_gru_internals3.gif")
+
+### Internals of [the `LSTM` cell](https://pytorch.org/docs/stable/generated/torch.nn.LSTM.html)
+
+![w09_lstm_internals.png](assets/w09_lstm_internals.png "w09_lstm_internals.png")
+
+- Two hidden states:
+  - `h`: short-term state;
+  - `c`: long-term state.
+- Three inputs and outputs:
+  - current input `x`;
+  - previous short-term state;
+  - previous long-term state.
+- Three `gates`:
+  - **Forget gate:** what to remove from long-term memory.
+  - **Input gate:** what to save to long-term memory.
+  - **Output gate:** what to return at the current time step.
+
+![w09_lstm_internals2.png](assets/w09_lstm_internals2.png "w09_lstm_internals2.png")
+
+Example:
+
+```python
+rnn = nn.LSTM(10, 20, 2)
+input_x = torch.randn(5, 3, 10)
+h0 = torch.randn(2, 3, 20)
+c0 = torch.randn(2, 3, 20)
+output, (hn, cn) = rnn(input_x, (h0, c0))
+```
+
+![w09_lstm_internals3.gif](assets/w09_lstm_internals3.gif "w09_lstm_internals3.gif")
+
+### Should I use RNN, LSTM, or GRU?
+
+- Experiment, experiment, experiment.
+- General trends:
+  - RNN is not used a lot.
+  - GRU is simpler than LSTM. It has less computation and is therefore faster.
+  - Relative performance varies per use-case. Use the simplest model that achieves the metrics you want.
+
+Which of the following statements about the different types of recurrent neural networks are correct? (multiple selection)
+
+A. Plain RNN cells are able to keep a memory track of long input sequences.
+B. LSTM cells keep two hidden states: one for short-term memory and one for long-term memory.
+C. In both LSTM and GRU cells, the hidden state is not only passed as input to the next time step, but also returned (either as a copy or through an activation function) at the current time step.
+D. LSTM cells always provide better results than GRU cells because they can handle more complexity with three rather than two gates.
+
+<details>
+
+<summary>Reveal answer</summary>
+
+Answer: B, C.
+
+</details>
+
+## Large Language Models
+
+<details>
+<summary>What are LLMs?</summary>
+
+- Huge neural networks with millions or billions of parameters capable of understanding and generating human language text and can handle various complex tasks.
+- Most commonly a mixture of experts (`MoE`), where each expert is a [Transformer model](https://huggingface.co/learn/nlp-course/en/chapter1/4).
+
+</details>
+
+### Using HuggingFace models
+
+- We're going to use mainly pretrained models from [HuggingFace](https://huggingface.co/).
+- Install the [`transformers`](https://pypi.org/project/transformers/) library.
+- Next, we'll see how we can use pretrained HuggingFace models (available, free for download) to solve the following tasks on the fly:
+  - summarization;
+  - text generation;
+  - language translation.
+
+#### Summarization
+
+```python
+import transformers
+
+# Browse models: <https://huggingface.co/models?pipeline_tag=summarization>
+summarizer = transformers.pipeline(task='summarization', model='facebook/bart-large-cnn')
+
+text = "Walking amid Gion's Machiya wooden houses is a mesmerizing experience. The beautifully preserved structures exuded an old-world charm that transports visitorsback in time, making them feel like they had stepped into a living museum. The glow of lanterns lining the narrow streets add to the enchanting ambiance, making each stroll amemorable journey through Japan's rich cultural history."
+
+summary = summarizer(text, max_length=50)
+summary
+```
+
+Note that the models are quite big:
+
+```console
+config.json: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1.58k/1.58k [00:00<00:00, 6.56MB/s]
+model.safetensors: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1.63G/1.63G [02:11<00:00, 12.3MB/s]
+generation_config.json: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 363/363 [00:00<00:00, 1.98MB/s]
+vocab.json: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 899k/899k [00:00<00:00, 2.90MB/s]
+merges.txt: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 456k/456k [00:00<00:00, 2.05MB/s]
+tokenizer.json: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1.36M/1.36M [00:00<00:00, 3.16MB/s]
+Device set to use cuda:0
+```
+
+```console
+[{'summary_text': "Gion's Machiya wooden houses exuded an old-world charm. The glow of lanterns lining the narrow streets add to the enchanting ambiance. Each stroll through Japan's rich cultural history is an amemorable journey."}]
+```
+
+- Depending on model, tokenizer, or text, we may end up with unwanted whitespace in our output.
+  - Remove it by adding the argument `clean_up_tokenization_spaces=True`.
+    - Most of today's summarization models do this automatically, but it does not hurt to know this.
+
+#### Text Generation
+
+```python
+import transformers
+# Browse models: <https://huggingface.co/models?pipeline_tag=text-generation>
+generator = transformers.pipeline(task='text-generation', model='distilgpt2')
+prompt = 'The Gion neighborhood in Kyoto is famous for'
+
+# Generator config: <https://huggingface.co/docs/transformers/main/en/main_classes/text_generation>
+output = generator(prompt, max_length=100, pad_token_id=generator.tokenizer.eos_token_id)
+output
+```
+
+```console
+[{'generated_text': "The Gion neighborhood in Kyoto is famous for its blue skies, which is a sight for almost anyone, especially on the way to Japan. The beautiful trees, which feature vibrant natural lighting, are also perfect for an adventurous man's day in the house. To visit the Gion neighborhood, the residents would need to visit the Yotamake Square, just north of Kyoto.\n\n\nThe gion community consists of three homes: the four main houses are situated in a row in the middle"}]
+```
+
+<details>
+<summary>What does the term "padding" refer to in the context of text processing?</summary>
+
+Adding a `fill-in` character in the beginning or end of text.
+
+</details>
+
+<details>
+<summary>Why would we want to do this?</summary>
+
+1. So that every input to our network has equal length.
+2. To mark the end of meaningful text, learned through training.
+
+</details>
+
+<details>
+<summary>But what if the length of the input is longer than the maximum context we have?</summary>
+
+We can move the part that is longer into a new input to the model.
+
+</details>
+
+<details>
+<summary>What characters can we use for padding?</summary>
+
+- If padding the beginning (less popular), `beginning-of-sequence` of the tokenizer.
+- If padding the end, `end-of-sequence` token of the tokenizer.
+
+</details>
+
+- Model generates up to `max_length` tokens or the token `pad_token_id`.
+- `max_length` (`int`, optional, defaults to `20`): The maximum length the generated tokens can have.
+  - **Note**: Corresponds to the length of the input prompt + `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set.
+- `pad_token_id`: Fill in extra space up to `max_length`:
+  - `bos_token_id`: Beginning-of-sequence token ID.
+  - `eos_token_id`: End-of-sequence token ID.
+
+##### Prompt Engineering
+
+<details>
+<summary>What is prompt engineering?</summary>
+
+Outputs of generative models may be suboptimal if prompt is vague. That is why we often have to set the proper structure. This process is called `prompt engineering`.
+
+</details>
+
+```python
+import transformers
+generator = transformers.pipeline(task="text-generation", model="distilgpt2")
+review = "This book was great. I enjoyed the plot twist in Chapter 10."
+response = "Dear reader, thank you for your review."
+prompt = f"Book review:\n{review}\n\nBook shop response to the review:\n{response}"
+output = generator(prompt, max_length=100, pad_token_id=generator.tokenizer.eos_token_id)
+print(output[0]["generated_text"])
+```
+
+```console
+Book review:
+This book was great. I enjoyed the plot twist in Chapter 10.
+
+Book shop response to the review:
+Dear reader, thank you for your review. Please help me write an update to my earlier post. I appreciate it.
+```
+
+#### Language Translation
+
+```python
+import transformers
+translator = transformers.pipeline(task="translation_en_to_es", model="Helsinki-NLP/opus-mt-en-es")
+text = "Walking amid Gion's Machiya wooden houses was a mesmerizing experience."
+output = translator(text, clean_up_tokenization_spaces=True)
+print(output[0]["translation_text"])
+```
+
+```console
+Caminar entre las casas de madera Machiya de Gion fue una experiencia fascinante.
+```
+
+### What is a Transformer?
+
+- Introduced in the paper [`Attention Is All You Need`](https://arxiv.org/abs/1706.03762).
+- Their famous architecture:
+
+![w09_transformer.png](assets/w09_transformer.png "w09_transformer.png")
+
+- Three main variants:
+
+![w09_transformer_variants.png](assets/w09_transformer_variants.png "w09_transformer_variants.png")
+
+- A lot of details can be found:
+  - in the [paper that introduces the model](https://github.com/deepseek-ai/DeepSeek-R1/blob/main/DeepSeek_R1.pdf);
+  - and/or the [`model card` in HuggingFace](https://huggingface.co/deepseek-ai/DeepSeek-R1) (if it's been uploaded there).
+
+#### Encoder-only
+
+- Use for understanding the input text.
+- Don't use for generating sequential output.
+- Common tasks:
+  - Text classification.
+  - Sentiment analysis.
+  - Extractive question-answering (extract or label).
+- Most famous encoder-only models: [`BERT` models](https://en.wikipedia.org/wiki/BERT_(language_model)#Variants).
+  - Example: <https://huggingface.co/distilbert/distilbert-base-uncased-distilled-squad>.
+
+```python
+import transformers
+llm = transformers.pipeline(model='bert-base-uncased')
+print(llm.model)
+```
+
+```console
+BertForMaskedLM(
+  (bert): BertModel(
+    (embeddings): BertEmbeddings(
+      (word_embeddings): Embedding(30522, 768, padding_idx=0)
+      (position_embeddings): Embedding(512, 768)
+      (token_type_embeddings): Embedding(2, 768)
+      (LayerNorm): LayerNorm((768,), eps=1e-12, elementwise_affine=True)
+      (dropout): Dropout(p=0.1, inplace=False)
+    )
+    (encoder): BertEncoder(
+      (layer): ModuleList(
+```
+
+#### Decoder-only
+
+- Use for generating output.
+- Common tasks:
+  - Text generation.
+  - Generative question-answering (sentence(s) or paragraph(s)).
+  - Due to specifics in their architecture (we'll touch on them in the next sessions), they can generalize to all sorts of tasks.
+- Most famous decoder-only models: [`GPT` models](https://en.wikipedia.org/wiki/Generative_pre-trained_transformer#Foundational_models).
+
+#### Encoder-decoder
+
+- Understand and process the input and output.
+- Common tasks:
+  - Translation.
+  - Summarization.
+- Most famous encoder-decoder models: [`T5`](https://en.wikipedia.org/wiki/T5_(language_model)#Variants), [`BART`](https://huggingface.co/docs/transformers/en/model_doc/bart).
+
+#### Transfomer: Checkpoint
+
+Example the following output of `llm.model`. What architecture does this model have?
+
+```console
+MarianMTModel(
+  (model): MarianModel(
+    (shared): Embedding(65001, 512, padding_idx=65000)
+    (encoder): MarianEncoder(
+      (embed_tokens): Embedding(65001, 512, padding_idx=65000)
+      (embed_positions): MarianSinusoidalPositionalEmbedding(512, 512)
+      (layers): ModuleList(
+        (0-5): 6 x MarianEncoderLayer(
+          (self_attn): MarianAttention(
+            (k_proj): Linear(in_features=512, out_features=512, bias=True)
+            (v_proj): Linear(in_features=512, out_features=512, bias=True)
+            (q_proj): Linear(in_features=512, out_features=512, bias=True)
+            (out_proj): Linear(in_features=512, out_features=512, bias=True)
+          )
+          (self_attn_layer_norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+          (activation_fn): SiLU()
+          (fc1): Linear(in_features=512, out_features=2048, bias=True)
+          (fc2): Linear(in_features=2048, out_features=512, bias=True)
+          (final_layer_norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        )
+      )
+    )
+    (decoder): MarianDecoder(
+      (embed_tokens): Embedding(65001, 512, padding_idx=65000)
+      (embed_positions): MarianSinusoidalPositionalEmbedding(512, 512)
+      (layers): ModuleList(
+        (0-5): 6 x MarianDecoderLayer(
+          (self_attn): MarianAttention(
+            (k_proj): Linear(in_features=512, out_features=512, bias=True)
+            (v_proj): Linear(in_features=512, out_features=512, bias=True)
+            (q_proj): Linear(in_features=512, out_features=512, bias=True)
+            (out_proj): Linear(in_features=512, out_features=512, bias=True)
+          )
+          (activation_fn): SiLU()
+          (self_attn_layer_norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+          (encoder_attn): MarianAttention(
+            (k_proj): Linear(in_features=512, out_features=512, bias=True)
+            (v_proj): Linear(in_features=512, out_features=512, bias=True)
+            (q_proj): Linear(in_features=512, out_features=512, bias=True)
+            (out_proj): Linear(in_features=512, out_features=512, bias=True)
+          )
+          (encoder_attn_layer_norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+          (fc1): Linear(in_features=512, out_features=2048, bias=True)
+          (fc2): Linear(in_features=2048, out_features=512, bias=True)
+          (final_layer_norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        )
+      )
+    )
+  )
+  (lm_head): Linear(in_features=512, out_features=65001, bias=False)
+)
+```
+
+<details>
+<summary>Reveal answer</summary>
+
+Encoder-decoder.
+
+Here's how the output was obtained:
+
+```python
+import transformers
+llm = transformers.pipeline(task="translation_en_to_es", model="Helsinki-NLP/opus-mt-en-es")
+print(llm.model)
+```
+
+</details>
+
+### Preparing for fine-tuning
+
+#### Auto Classes
+
+So far, we have used only [the `pipeline` function](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.pipeline):
+
+![w09_pipeline_fn.png](assets/w09_pipeline_fn.png "w09_pipeline_fn.png")
+
+- Pros:
+  - It streamlines tasks.
+  - Autmatic model and tokenizer selection.
+- Cons:
+  - Limited control.
+
+[Auto classes](https://huggingface.co/docs/transformers/v4.48.2/en/model_doc/auto#auto-classes) ([`AutoModel` class](https://huggingface.co/docs/transformers/v4.48.2/en/model_doc/auto#transformers.AutoModel)) allow:
+
+- More customization.
+- Manual adjustments.
+- Model fine-tuning.
+
+![w09_auto_classes.png](assets/w09_auto_classes.png "w09_auto_classes.png")
+
+#### LLM Development Lifecycle
+
+![w09_llm_development_lifecycle.png](assets/w09_llm_development_lifecycle.png "w09_llm_development_lifecycle.png")
+
+- Two phases:
+  - Phase `1`: Pre-training on a broad dataset.
+    - Goal: Learn general language patterns.
+  - Phase `2`: Fine-tuning on domain specific data.
+    - Goal: Adapt LLM for specific task(s).
+
+![w09_fine_tuning_summary.png](assets/w09_fine_tuning_summary.png "w09_fine_tuning_summary.png")
+
+### Loading a dataset for fine-tuning and tokenizing it
+
+```python
+from datasets import load_dataset
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+
+train_data = load_dataset('imdb', split='train')
+train_data = train_data.shard(num_shards=4, index=0) # take only the first chunk (from 4 equally-sized chunks)
+
+print(train_data)
+
+test_data = load_dataset('imdb', split='test')
+test_data = test_data.shard(num_shards=4, index=0) # take only the first chunk (from 4 equally-sized chunks)
+
+model = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased')
+tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+
+# truncate when max_length is exceeded
+# pad when max_length is not reached
+tokenized_training_data = tokenizer(train_data['text'], return_tensors='pt', padding=True, truncation=True, max_length=64)
+tokenized_test_data = tokenizer(test_data['text'], return_tensors='pt', padding=True, truncation=True, max_length=64)
+
+print()
+print(f"Number of documents: {len(train_data['text'])}")
+print(f"Length of first document: {len(train_data['text'][0])}")
+print(f"First 64 characters from the first document: {train_data['text'][0][:64]}")
+print(f"Shape of tokenized result: {tokenized_training_data['input_ids'].shape}")
+print(f"First document tokenized: {tokenized_training_data['input_ids'][0]}")
+print(f"Full output: {tokenized_training_data}")
+```
+
+```console
+Dataset({
+    features: ['text', 'label'],
+    num_rows: 6250
+})
+
+Number of documents: 6250
+Length of first document: 1640
+First 64 characters from the first document: I rented I AM CURIOUS-YELLOW from my video store because of all
+Shape of tokenized result: torch.Size([6250, 64])
+First document tokenized: tensor([  101,  1045, 12524,  1045,  2572,  8025,  1011,  3756,  2013,  2026,
+         2678,  3573,  2138,  1997,  2035,  1996,  6704,  2008,  5129,  2009,
+         2043,  2009,  2001,  2034,  2207,  1999,  3476,  1012,  1045,  2036,
+         2657,  2008,  2012,  2034,  2009,  2001,  8243,  2011,  1057,  1012,
+         1055,  1012,  8205,  2065,  2009,  2412,  2699,  2000,  4607,  2023,
+         2406,  1010,  3568,  2108,  1037,  5470,  1997,  3152,  2641,  1000,
+         6801,  1000,  1045,   102])
+Full output: {'input_ids': tensor([[  101,  1045, 12524,  ...,  1000,  1045,   102],
+        [  101,  1000,  1045,  ...,  1005,  1056,   102],
+        [  101,  2065,  2069,  ..., 11795,  3085,   102],
+        ...,
+        [  101, 17012,  1010,  ...,  2668,  8631,   102],
+        [  101,  2066,  2087,  ...,  2781,  1012,   102],
+        [  101,  1045,  2079,  ...,  1997,  2014,   102]]), 'token_type_ids': tensor([[0, 0, 0,  ..., 0, 0, 0],
+        [0, 0, 0,  ..., 0, 0, 0],
+        [0, 0, 0,  ..., 0, 0, 0],
+        ...,
+        [0, 0, 0,  ..., 0, 0, 0],
+        [0, 0, 0,  ..., 0, 0, 0],
+        [0, 0, 0,  ..., 0, 0, 0]]), 'attention_mask': tensor([[1, 1, 1,  ..., 1, 1, 1],
+        [1, 1, 1,  ..., 1, 1, 1],
+        [1, 1, 1,  ..., 1, 1, 1],
+        ...,
+        [1, 1, 1,  ..., 1, 1, 1],
+        [1, 1, 1,  ..., 1, 1, 1],
+        [1, 1, 1,  ..., 1, 1, 1]])}
+```
+
+- The return type of directly applying the tokenizer is a dictionary.
+- The training loop (i.e. the model), however, requires a [`Dataset`](https://huggingface.co/docs/datasets/v3.2.0/package_reference/main_classes#datasets.Dataset) object.
+  - To get such, we can use the `map` method:
+
+```python
+def tokenize_function(text_data):
+  return tokenizer(text_data["text"], return_tensors="pt", padding=True, truncation=True, max_length=64)
+
+# set batches to "False" if "train_data" is not split in batches
+tokenized_training_data = train_data.map(tokenize_function, batched=True)
+print(tokenized_training_data)
+
+# set batches to "False" if "train_data" is not split in batches
+tokenized_test_data = train_data.map(tokenize_function, batched=True)
+print(tokenized_test_data)
+```
+
+```console
+Map: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████| 6250/6250 [00:08<00:00, 749.30 examples/s]
+Dataset({
+    features: ['text', 'label', 'input_ids', 'token_type_ids', 'attention_mask'],
+    num_rows: 6250
+})
+```
+
+### Training "loop"
+
+- In HuggingFace we don't write the training and evaluation loops ourselves.
+- Instead we use the abstractions [`Trainer`](https://huggingface.co/docs/transformers/en/main_classes/trainer#transformers.Trainer) and [`TrainingArguments`](https://huggingface.co/docs/transformers/en/main_classes/trainer#transformers.TrainingArguments).
+
+```python
+from transformers import Trainer, TrainingArguments
+
+training_args = TrainingArguments(
+  output_dir='./finetuned', # output directory where the model predictions and checkpoints will be written
+  eval_strategy ='epoch',
+    # "no": No evaluation is done during training.
+    # "steps": Evaluation is done (and logged) every eval_steps.
+    # "epoch": Evaluation is done at the end of each epoch.
+  num_train_epochs=3,
+  learning_rate=2e-5, # The initial learning rate for AdamW optimizer (defaults to 5e-5)
+  per_device_train_batch_size=8, # The batch size per GPU/TPU/NPU core/CPU for training (defaults to 8)
+  per_device_eval_batch_size=8,
+  weight_decay=0.01, # The weight decay to apply to all layers except all bias and LayerNorm weights in AdamW optimizer
+)
+
+trainer = Trainer(
+  model=model,
+  args=training_args,
+  train_dataset=tokenized_training_data,
+  eval_dataset=tokenized_test_data,
+  processing_class=tokenizer,
+)
+
+trainer.train()
+```
+
+```console
+{'eval_loss': 0.398524671792984, 'eval_runtime': 33.3145, 'eval_samples_per_second': 46.916, 'eval_steps_per_second': 5.883, 'epoch': 1.0}
+{'eval_loss': 0.1745782047510147, 'eval_runtime': 33.5202, 'eval_samples_per_second': 46.629, 'eval_steps_per_second': 5.847, 'epoch': 2.0}{'loss': 0.4272, 'grad_norm': 15.558795928955078, 'learning_rate': 2.993197278911565e-06, 'epoch': 2.5510204081632653}
+{'eval_loss': 0.12216147780418396, 'eval_runtime': 33.2238, 'eval_samples_per_second': 47.045, 'eval_steps_per_second': 5.899, 'epoch': 3.0}
+{'train_runtime': 673.0528, 'train_samples_per_second': 6.967, 'train_steps_per_second': 0.874, 'train_loss': 0.40028538347101533, 'epoch': 3.0}
+
+TrainOutput(
+  global_step=588,
+  training_loss=0.40028538347101533,
+  metrics={
+    'train_runtime': 673.0528,
+    'train_samples_per_second': 6.967,
+    'train_steps_per_second': 0.874,
+    'train_loss': 0.40028538347101533,
+    'epoch': 3.0
+  }
+)
+```
+
+### Saving and loading models and tokenizers
+
+- Saving:
+
+```python
+model.save_pretrained('my_finetuned_model_folder')
+tokenizer.save_pretrained('my_finetuned_model_folder')
+```
+
+- Loading:
+
+```python
+model = AutoModelForSequenceClassification.from_pretrained('my_finetuned_model_folder')
+tokenizer = AutoTokenizer.from_pretrained('my_finetuned_model_folder')
+```
+
+### Using the fine-tuned model
+
+```python
+new_data = ["This is movie was disappointing!", "This is the best movie ever!"]
+new_input = tokenizer(new_data, return_tensors="pt", padding=True, truncation=True, max_length=64)
+
+with torch.no_grad():
+  outputs = model(**new_input)
+
+predicted_labels = torch.argmax(outputs.logits, dim=1).tolist()
+label_map = {0: "NEGATIVE", 1: "POSITIVE"}
+for i, predicted_label inenumerate(predicted_labels):
+  sentiment = label_map[predicted_label]
+  print(f"\nInput Text {i + 1}: {new_data[i]}")
+  print(f"Predicted Label: {sentiment}")
+```
+
+```console
+Input Text 1: This is movie was disappointing!
+Predicted Label: NEGATIVE
+
+Input Text 2: This is the best movie ever!
+Predicted Label: POSITIVE
+```
+
+### Fine-tuning approaches
+
+#### Full fine-tuning
+
+![w09_full_ft.png](assets/w09_full_ft.png "w09_full_ft.png")
+
+- The entire model weights are updated.
+- Computationally expensive.
+
+#### Partial fine-tuning
+
+![w09_partial_ft.png](assets/w09_partial_ft.png "w09_partial_ft.png")
+
+- Some layers are fixed.
+- Only task-specific layers (typically the last ones) are updated.
+
+### Fine-Tuning vs Transfer Learning
+
+- Fine-tuning has the goal to turn a model that has general knowledge to a model that has domain-specific knowledge.
+- Transfer learning has the goal of turning a model that has domain-specific knowledge in one task into a model that can solve a task from another domain.
+
+![w09_transfer_learning.png](assets/w09_transfer_learning.png "w09_transfer_learning.png")
+
+- Several approaches can be adopted for transfer learning:
+  - including full and partial fine-tuning
+  - another popular transfer learning approach is `n`-shot learning
+    - includes zero, one, and few-shot learning.
+
+### N-shot learning
+
+- Zero-shot: no examples.
+- Few-shot: several examples.
+- One-shot: one example.
+
+```python
+from transformers import pipeline
+
+generator = pipeline(task="sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
+input_text = """
+Classify the sentiment of this sentence as either Positive or Negative.
+Example:
+Text: "I'm feeling great today!" Sentiment: Positive
+Text: "The weather today is lovely." Sentiment:
+"""
+
+result = generator(input_text, max_length=100)
+print(result[0]["label"])
+```
+
+```console
+POSITIVE
+```
+
+### Evaluating LLMs
+
+#### The [`evaluate`](https://huggingface.co/docs/evaluate/en/index) library
+
+- HuggingFace's implementation of metrics (which mostly all just reuse the implemention from `scikit-learn`).
+- See all available metrics in [the HuggingFace evaluate repo](https://github.com/huggingface/evaluate/tree/main/metrics).
+- The return type is a Python dictionary!
+- Each metric:
+  - is created via the function `load`.
+  - has nicely written and easy-to-obtain documentation in the attribute `description`.
+  - has an attribute `features` that shows the required parameters and their types.
+- Advice:
+  - be **aware**: each metric brings its own *insights*, but they also have their *limitations*.
+  - be **comprehensive**: use a *combination of metrics* (and domain-specific KPIs where possible).
+
+```python
+import evaluate
+accuracy = evaluate.load('accuracy')
+print(accuracy.description)
+```
+
+```console
+Accuracy is the proportion of correct predictions among the total number of cases processed. It can be computed with:
+Accuracy = (TP + TN) / (TP + TN + FP + FN)
+ Where:
+TP: True positive
+TN: True negative
+FP: False positive
+FN: False negative
+```
+
+```python
+print(accuracy.features)
+```
+
+```console
+{'predictions': Value(dtype='int32', id=None), 'references': Value(dtype='int32', id=None)}
+```
+
+#### Text classification metrics
+
+The usual `4` suspects:
+
+```python
+accuracy = evaluate.load('accuracy')
+precision = evaluate.load('precision')
+recall = evaluate.load('recall')
+f1 = evaluate.load('f1')
+```
+
+```python
+classifier = transformers.pipeline('text-classification', model=model, tokenizer=tokenizer)
+predictions = classifier(evaluation_text)
+predicted_labels = [1 if pred['label'] == 'POSITIVE' else 0 for pred in predictions]
+```
+
+```python
+real_labels = [0, 1, 0, 1, 1]
+predicted_labels = [0, 0, 0, 1, 1]
+
+print(accuracy.compute(references=real_labels, predictions=predicted_labels))
+print(precision.compute(references=real_labels, predictions=predicted_labels))
+print(recall.compute(references=real_labels, predictions=predicted_labels))
+print(f1.compute(references=real_labels, predictions=predicted_labels))
+```
+
+```console
+{'accuracy': 0.8}
+{'precision': 1.0}
+{'recall': 0.6666666666666666}
+{'f1': 0.8}
+```
+
+```python
+new_data = ['This is movie was disappointing!', 'This is the best movie ever!']
+
+new_input = tokenizer(new_data,
+                      return_tensors='pt',
+                      padding=True,
+                      truncation=True,
+                      max_length=64)
+
+with torch.no_grad():
+  outputs = model(**new_input)
+
+predicted = torch.argmax(outputs.logits,
+                         dim=1).tolist()
+real = [0, 1]
+print(accuracy.compute(references=real, predictions=predicted))
+print(precision.compute(references=real, predictions=predicted))
+print(recall.compute(references=real, predictions=predicted))
+print(f1.compute(references=real, predictions=predicted))
+```
+
+```console
+{'accuracy': 1.0}
+{'precision': 1.0}
+{'recall': 1.0}
+{'f1': 1.0}
+```
+
+#### Text generation metrics
+
+##### Perplexity
+
+> **Definition**: In [information theory](https://en.wikipedia.org/wiki/Information_theory), perplexity is a measure of uncertainty in the value of a sample from a discrete probability distribution. The **larger** the perplexity, **the less likely** it is that an observer can guess the value which will be drawn from the distribution.
+
+$$PP(x) \triangleq 2^{H(x)}$$
+
+- $x$ is a random variable: it can take a bunch of outcomes.
+- $H(x)$ is the entropy of $x$:
+  - Formula: $H(x)=-\sum_{i=1}^n p(x_i) \log_2 p(x_i)$
+    - Recall: Binary Cross-Entropy: $-{(y\log_2(p) + (1 - y)\log_2(1 - p))}$
+  - Interpretation: Minimum number of bits per outcome to encode $x$ *on average*.
+
+Let's see how we can calculate perplexity:
+
+- Image that I stand in this room and you go to another room - you cannot see what is happening in this room.
+- I roll a dice, named $x$:
+  - $x$ is a special dice - it has a strange ability to change shapes: one time, it can have only `1` side, another time - `6` sides, and so on.
+  - **we (you and me) know how many sides the dice has prior to every roll.**
+- I'm rolling the dice multiple times and checking the side on which it falls on.
+- My task is to communicate with you the side that the dice fell on using an old telegraph machine that can only transmit `bits`.
+
+<details>
+<summary>If the dice has two sides, how many bits do I need on average?</summary>
+
+`1`.
+
+$P(x = a) = 0.5$
+$P(x = b) = 0.5$
+$H(x) = -0.5\log_2 0.5 - 0.5 \log_2 0.5 = 1$ bit
+$PP(x) = 2^1 = 2$ => you have two choices from which to choose the outcome.
+
+![w09_perplexity.png](assets/w09_perplexity.png "w09_perplexity.png")
+
+</details>
+
+<details>
+<summary>If the dice has one side, how many bits do I need on average?</summary>
+
+`0`.
+
+Whenever I'm done rolling the dice, you just shout the side, as it's always going to be it.
+
+$P(x = a) = 1$
+$H(x) = -1\log_2 1 = 0$ bits
+$PP(x) = 2^0 = 1$ => you have 1 choice from which to choose the outcome.
+
+![w09_perplexity2.png](assets/w09_perplexity2.png "w09_perplexity2.png")
+
+</details>
+
+<details>
+<summary>If the dice has four sides, how many bits do I need on average?</summary>
+
+`2`.
+
+$P(x = a) = 0.25$
+$P(x = b) = 0.25$
+$P(x = c) = 0.25$
+$P(x = d) = 0.25$
+$H(x) = -0.25\log_2 0.25 - 0.25 \log_2 0.25 - 0.25 \log_2 0.25 - 0.25 \log_2 0.25 = 2$ bits ($\log_2 0.25 = -2$, $-2 * - 0.25 = 0.5$, $0.5 * 4 = 2$)
+$PP(x) = 2^2 = 4$ => you have 4 choice from which to choose the outcome.
+
+![w09_perplexity3.png](assets/w09_perplexity3.png "w09_perplexity3.png")
+
+</details>
+
+<details>
+<summary>If the dice has four sides with likelihoods 0.7, 0.1, 0.1, and 0.1, how many bits do I need on average?</summary>
+
+`1.35678`.
+
+$P(x = a) = 0.7$
+$P(x = b) = 0.1$
+$P(x = c) = 0.1$
+$P(x = d) = 0.1$
+$H(x) = -0.7\log_2 0.7 - 3 * 0.1 \log_2 0.1 = 1.35678$ bits
+$PP(x) = 2^{1.35678} = 2.5611$ => you have 4 choices, but not really choosing out of 4 outcomes - mostly, it is $a$. Therefore, $PP$ is lower. It means that you're choosing out of $2.56$ outcomes on average.
+
+![w09_perplexity4.png](assets/w09_perplexity4.png "w09_perplexity4.png")
+
+</details>
+
+<details>
+<summary>If the dice has four sides with likelihoods 0.97, 0.01, 0.01, and 0.01, how would the value of the perplexity change?</summary>
+
+It'll be lower.
+
+$P(x = a) = 0.97$
+$P(x = b) = 0.01$
+$P(x = c) = 0.01$
+$P(x = d) = 0.01$
+$H(x) = 0.2419$ bits
+$PP(x) = 1.1826$
+
+![w09_perplexity5.png](assets/w09_perplexity5.png "w09_perplexity5.png")
+
+</details>
+
+<details>
+<summary>If the dice has four sides with likelihoods 0.49, 0.49, 0.01, and 0.01, can you "guestimate" the value of the perplexity?</summary>
+
+Since $2$ of the sides are equally likely, it should be a little bit above $2$.
+
+$P(x = a) = 0.49$
+$P(x = b) = 0.49$
+$P(x = c) = 0.01$
+$P(x = d) = 0.01$
+$H(x) = 1.1414$ bits
+$PP(x) = 2.2060$
+
+![w09_perplexity6.png](assets/w09_perplexity6.png "w09_perplexity6.png")
+
+</details>
+
+<details>
+<summary>So, if you train an LLM and it has perplexity of "6" of evaluation/test data what does that mean?</summary>
+
+When the model predicts the next output token, from all the possible tokens it can output, it only looks at $6$ of them in a weighted manner.
+
+This gives a direct criteria for model comparison: the fewer the options (the lower the perplexity), the better (the more certain the model is).
+
+</details>
+
+```python
+import torch
+from transformers import GPT2Tokenizer, GPT2LMHeadModel
+import evaluate
+
+tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+input_text = 'Latest research findings in Antarctica show'
+input_text_ids = tokenizer.encode(input_text, return_tensors='pt')
+print(f'Will predict based on the following tokens: {input_text_ids}')
+
+model = GPT2LMHeadModel.from_pretrained('gpt2')
+output = model.generate(input_text_ids, max_length=20, output_scores=True, return_dict_in_generate=True)
+print(f'Fields in output: {dir(output)}')
+print(f'The generated sequences (1 since only 1 input sentence): {output.sequences}')
+generated_text = tokenizer.decode(output.sequences[0], skip_special_tokens=True)
+print(f'Generated text: {generated_text}')
+
+print(f'Data type of score: {type(output.scores)}')
+print(f'Number of scores: {len(output.scores)}')
+probabilities_first_token = torch.nn.functional.softmax(output.scores[0], dim=-1)
+print(f'Probabilities for the first token shape: {probabilities_first_token.shape}')
+print(f'Index with maximum value: {probabilities_first_token.argmax()}')
+
+perplexity = evaluate.load('perplexity', module_type='metric')
+results = perplexity.compute(predictions=[generated_text], model_id='gpt2')
+print(results)
+```
+
+```console
+Will predict based on the following tokens: tensor([[39478,  2267,  6373,   287, 30185,   905]])
+Fields in output: ['__annotations__', '__class__', '__class_getitem__', '__contains__', '__dataclass_fields__', '__dataclass_params__', '__delattr__', '__delitem__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getitem__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__ior__', '__iter__', '__le__', '__len__', '__lt__', '__match_args__', '__module__', '__ne__', '__new__', '__or__', '__post_init__', '__reduce__', '__reduce_ex__', '__repr__', '__reversed__', '__ror__', '__setattr__', '__setitem__', '__sizeof__', '__str__', '__subclasshook__', 'attentions', 'clear', 'copy', 'fromkeys', 'get', 'hidden_states', 'items', 'keys', 'logits', 'move_to_end', 'past_key_values', 'pop', 'popitem', 'scores', 
+'sequences', 'setdefault', 'to_tuple', 'update', 'values']
+The generated sequences (1 since only 1 input sentence): tensor([[39478,  2267,  6373,   287, 30185,   905,   326,   262,  4771,  9629,
+           318, 24203,  5443,   621,  4271,  1807,    13,   198,   198,   464]])
+Generated text: Latest research findings in Antarctica show that the ice sheet is melting faster than previously thought.
+
+The
+Data type of score: <class 'tuple'>
+Number of scores: 14
+Probabilities for the first token shape: torch.Size([1, 50257])
+Index with maximum value: 326
+{'perplexities': [11.812535285949707], 'mean_perplexity': np.float64(11.812535285949707)}
+```
+
+##### Bilingual Evaluation Understudy (`BLEU`)
+
+- In the world of acting, an `understudy` is someone who learns the role of a more senior actor, so that they can take on the role of the senior actor, if necessary.
+  - Thus, the `BLEU` metric substitutes human evaluators to evaluate the quality of a machine translation system.
+
+One text can have mulitple perfectly valid translations:
+
+```text
+French: Le chat est sur le tapis.
+Reference 1: The cat is on the mat.
+Reference 2: There is a cat on the mat.
+```
+
+BLEU score:
+- Measure how close a translation is to **any one** of a given set of references.
+- Count how often `n`-grams in the machine translated (MT) text appear in the references.
+  - Precision: from all of the words in the MT output, how many appear in either of the references?
+    - Has a problem, that is fixed with a slight modification.
+  - Formula: $BLEU_n = \sqrt[n]{p_1 \ldots p_n}$ where $p_i$ is the modified precision for all the $i$-grams.
+    - The output is normalized between $0$ and $1$, with $1$ being the perfect score.
+
+Let's say the MT output is: `the the the the the the the`.
+
+<details>
+<summary>What is the precision?</summary>
+
+`7 / 7 = 100%`!
+
+All `7` words are `the` and `the` is present in at least one of the references (all of them in this case).
+
+</details>
+
+<details>
+<summary>How can we solve this problem?</summary>
+
+We'll modify the calculation. Instead of considering whether the word appears in the references, we'll use the maximum number of times the word/`n`-gram appears in any of the references.
+
+In our example, that would be `2 / 7` as `the` appears two times in reference `1`.
+
+This modified precision calculation is also known as clipping the number of `n`-gram matches.
+
+</details>
+
+<details>
+<summary>Can you intuit why we use N-grams and not just unigrams?</summary>
+
+To also include a `meaning` evaluation.
+
+MT output: `years six thirty have I`
+Reference: `I am thirty six years old`
+
+Modified precision = `4 / 5` which is a problem, but the problem is not in the words themselves, but how they are ordered.
+
+If we use the `4`-gram split, we would get:
+
+```text
+years six thirty have
+```
+
+and
+
+```text
+six thirty have I
+```
+
+And now, the modified precision is `0 / 5` as none of those `4`-grams appear in the reference.
+
+</details>
+
+```python
+bleu = evaluate.load("bleu")
+
+input_text = "Latest research findings in Antarctica show"
+references = [["Latest research findings in Antarctica show significant ice loss due to climate change.", "Latest research findings in Antarctica show that the ice sheet is melting faster than previously thought."]]
+generated_text = "Latest research findings in Antarctica show that the ice sheet is melting faster than previously thought."
+
+results = bleu.compute(predictions=[generated_text], references=references)
+print(results)
+```
+
+```python
+{'bleu': 1.0,
+ 'brevity_penalty': 1.0,
+ 'length_ratio': 1.2142857142857142,
+ 'precisions': [1.0, 1.0, 1.0, 1.0],
+ 'reference_length': 14,
+ 'translation_length': 17}
+```
+
+#### Summarization metrics
+
+##### Recall-Oriented Understudy for Gisting Evaluation ([`ROUGE`](https://en.wikipedia.org/wiki/ROUGE_(metric)))
+
+- Assign a score to a summary that tells how good that summary is compared to reference summaries.
+- Compare `n`-grams of the generated text with the `n`-grams of the reference(s).
+  - `ROUGE-N`: Overlap of n-grams between the system and reference summaries.
+  - `ROUGE-1` refers to the overlap of unigrams (each word) between the system and reference summaries.
+  - `ROUGE-2` refers to the overlap of bigrams between the system and reference summaries.
+- `ROUGE-L`: Longest Common Subsequence (`LCS`) based statistics. Longest common subsequence problem takes into account sentence-level structure similarity naturally and identifies longest co-occurring in sequence `n`-grams automatically.
+  - Computed as the average `ROUGE-L` per sentence.
+- `ROUGE-Lsum`: Compute `ROUGE-L` for the whole summary (as opposed to averaging per sentence).
+- Scores between `0` and `1`: higher score => higher similarity.
+
+```python
+import evaluate
+rouge = evaluate.load("rouge")
+
+predictions = ["""as we learn more about the frequency and size distribution of exoplanets, we are discovering that terrestrial planets are exceedingly common."""]
+references = ["""The more we learn about the frequency and size distribution of exoplanets, the more confident we are that they are exceedingly common."""]
+
+results = rouge.compute(predictions=predictions, references=references)
+print(results)
+```
+
+```console
+{'rouge1': np.float64(0.7906976744186046),
+ 'rouge2': np.float64(0.5365853658536585),
+ 'rougeL': np.float64(0.7441860465116279),
+ 'rougeLsum': np.float64(0.7441860465116279)}
+```
+
+#### Translation metrics
+
+##### Metric for Evaluation of Translation with Explicit ORdering ([`METEOR`](https://en.wikipedia.org/wiki/METEOR))
+
+- Incorporates more linguistic features into evaluation:
+  - variations in words through stemming;
+  - using synonyms to capture words with similar meaning;
+- Penalizes differences in word order.
+
+```python
+bleu = evaluate.load("bleu")
+meteor = evaluate.load("meteor")
+
+prediction = ["He thought it right and necessary to become a knight-errant, roaming the world in armor, seeking adventures and practicing the deeds he had read about in chivalric tales."]
+reference = ["He believed it was proper and essential to transform into a knight-errant, traveling the world in armor, pursuing adventures, and enacting the heroic deeds he had encountered in tales of chivalry."]
+
+results_bleu = bleu.compute(predictions=prediction, references=reference)
+results_meteor = meteor.compute(predictions=prediction, references=reference)
+print(f"Bleu: {results_bleu['bleu']}")
+print(f"Meteor: {results_meteor['meteor']}")
+```
+
+```console
+Bleu: 0.19088841781992524
+Meteor: 0.5350702240481536
+```
+
+- BLEU is lower because the words used are not the same.
+- However, METEOR is larger as there is still semantic allignment in the translation.
+
+#### Question-answering metrics
+
+##### Extractive QA
+
+###### Exact Match (EM)
+
+- `1` if output matches reference exactly. `0` otherwise.
+
+```python
+from evaluate import load
+
+exact_match = evaluate.load("exact_match")
+
+predictions = [
+  "The cat sat on the mat.",
+  "Theaters are great.",
+  "Like comparing oranges and apples."
+  ]
+references = [
+  "The cat sat on the mat?",
+  "Theaters are great.",
+  "Like comparing apples and oranges."
+  ]
+
+results = exact_match.compute(references=references, predictions=predictions)
+print(results)
+```
+
+```console
+{'exact_match': np.float64(0.3333333333333333)}
+```
+
+- Only the second answer fully matches the reference, resulting in a score of `~0.3`.
+- Due to being a highly sensitive metric, it is frequent to use `EM` together with the `F1` score, rather than in isolation.
+
+##### Generative QA
+
+- `BLUE` / `ROUGE`
+
+#### Summary diagram
+
+![w09_summary_metrics.png](assets/w09_summary_metrics.png "w09_summary_metrics.png")
