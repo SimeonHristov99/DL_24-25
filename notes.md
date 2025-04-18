@@ -4706,7 +4706,7 @@ A total of 1267 corners were detected.
 We can then plot those points via `matplotlib` on top of the original image.
 
 ```python
-plt.plot(coords[:, 0], coords[:, 1], '+r', markersize=15)
+plt.plot(coords[:, 1], coords[:, 0], '+r', markersize=15)
 ```
 
 ## Face detection
