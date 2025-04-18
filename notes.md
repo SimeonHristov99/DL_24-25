@@ -4199,6 +4199,9 @@ show_image(binary_global, 'Global thresholding')
 - Determine based on surronding values up to a given range.
 - Good for uneven background illumination.
 - The threshold value is the weighted mean for the local neighborhood of a pixel subtracted by a constant [reference](https://scikit-image.org/docs/stable/api/skimage.filters.html#skimage.filters.threshold_local).
+- General tips:
+  1. Keep `block_size` relatively large and `offset` relatively small.
+  2. Set `block_size` to an odd number.
 
 ![w05_global_local_thresholding.png](assets/w05_global_local_thresholding.png "w05_global_local_thresholding.png")
 
