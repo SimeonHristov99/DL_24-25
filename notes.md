@@ -298,6 +298,29 @@
           - [Exact Match (EM)](#exact-match-em)
         - [Generative QA](#generative-qa)
       - [Summary diagram](#summary-diagram)
+- [Week 10 - The Transformer Architecture](#week-10---the-transformer-architecture)
+  - [The paper that changed everything](#the-paper-that-changed-everything)
+  - [Building intuition](#building-intuition)
+  - [Input embedding](#input-embedding)
+  - [Positional encoding](#positional-encoding)
+  - [Multi-head self-attention](#multi-head-self-attention)
+    - [Step 1](#step-1)
+    - [Step 2](#step-2)
+    - [Steps 3 and 4](#steps-3-and-4)
+    - [Steps 5 and 6](#steps-5-and-6)
+    - [Combining outputs](#combining-outputs)
+  - [Masking in the encoder](#masking-in-the-encoder)
+  - [Position-wise Feed-Forward Networks](#position-wise-feed-forward-networks)
+  - [Addition and Layer Normalization](#addition-and-layer-normalization)
+  - [The Encoder block](#the-encoder-block)
+  - [Encoder-only transformers](#encoder-only-transformers)
+  - [Decoder-only transformers](#decoder-only-transformers)
+    - [Masking in the decoder](#masking-in-the-decoder)
+    - [Decoder layer](#decoder-layer)
+  - [Encoder-decoder-only transformers](#encoder-decoder-only-transformers)
+    - [Cross-attention + `LayerNorm`](#cross-attention--layernorm)
+    - [Some changes required](#some-changes-required)
+  - [Using a pre-built architecture](#using-a-pre-built-architecture)
 
 # Week 01 - Hello, Deep Learning. Implementing a Multilayer Perceptron
 
@@ -8345,3 +8368,760 @@ print(results)
 #### Summary diagram
 
 ![w09_summary_metrics.png](assets/w09_summary_metrics.png "w09_summary_metrics.png")
+
+# Week 10 - The Transformer Architecture
+
+## The paper that changed everything
+
+- [Attention Is All You Need](https://arxiv.org/abs/1706.03762).
+  - Brought together various advancements in the deep learning field, like attention mechanisms, into a new architecture optimized for modeling sequences like text.
+  - The building blocks of Large Language Models (LLMs).
+
+<details>
+<summary>In which year was the paper released?</summary>
+
+$2017$
+
+</details>
+
+<details>
+<summary>Open the paper and find the number of the figure that introduces the architecture of the Transformer.</summary>
+
+`Figure 1`.
+
+![w10_transformer_arch.png](assets/w10_transformer_arch.png "w10_transformer_arch.png")
+
+</details>
+
+## Building intuition
+
+<details>
+<summary>Read through the paper - what are the two blocks that make up the Transformer?</summary>
+
+- the Encoder block:
+
+![w10_encoder_block.png](assets/w10_encoder_block.png "w10_encoder_block.png")
+
+- and the Decoder block:
+
+![w10_decoder_block.png](assets/w10_decoder_block.png "w10_decoder_block.png")
+
+</details>
+
+Lets take a translation example from English to Spanish. A user inputs:
+
+```text
+We have 5 dogs
+```
+
+And if the translation is correct they should get as a result:
+
+```text
+Nosotras tenemos 5 perros
+```
+
+<details>
+<summary>Can you intuit what the encoder would do?</summary>
+
+1. Encode the English sentence in numerical form.
+2. Produce an **attention vector** as output.
+  - Think of it as the **feature vector** that is produced by the filters of CNNs.
+
+</details>
+
+<details>
+<summary>Can you intuit what the decoder would do?</summary>
+
+1. Be fed the attention vector and a `<START>` token.
+2. (should) Produce the first Spanish word - *Nosotras*. This is $Y_t$.
+3. Be fed again the same attention vector from the encoder as well as the `<START>` token **and** the previous output $Y_{t-1}$ - *Nosotras*.
+4. (should) Produce the second Spanish word - *tenemos*
+5. And so on and so forth
+6. Until the decoder produces an `<END>` token.
+
+The decoder is thus an [Autoregressive Model](https://en.wikipedia.org/wiki/Autoregressive_model). It relies on its own output to generate the next sequence.
+
+More details [here](https://stackoverflow.com/questions/72673637/the-decoder-part-in-a-transformer-model).
+
+</details>
+
+## Input embedding
+
+<details>
+<summary>If we regard embedding as a function, what does it take as input and what does it return as output?</summary>
+
+Input: Token IDs.
+Output: Embedding vectors.
+
+</details>
+
+<details>
+<summary>Draw a diagram as an example.</summary>
+
+![w10_transf_part1_embedding.png](assets/w10_transf_part1_embedding.png "w10_transf_part1_embedding.png")
+
+</details>
+
+<details>
+<summary>How many rows would the embedding table have?</summary>
+
+It'll be the number of possible tokens, also known as the size of the vocabulary (`vocab_size`).
+
+</details>
+
+<details>
+<summary>What do the columns mean?</summary>
+
+- The columns represent the embedding.
+- Each row is therefore a mapping from a token id to an `n`-dimensional vector that semantically embeds that token id.
+
+</details>
+
+<details>
+<summary>How many columns would the embedding table have?</summary>
+
+- This is a hyperparameter that is set by us (`embedding_dim`).
+- More columns => larger expressiveness & more parameters & longer training.
+- Less columns => smaller expressiveness & less parameters & faster training.
+- Experiment, experiment, experiment!
+
+</details>
+
+<details>
+<summary>What variable is used in the Transformer paper to refer to "embedding_dim"?</summary>
+
+The dimensionality of the model (`d_model`).
+
+</details>
+
+<details>
+<summary>Open the paper and find what value the authors used for "d_model"?</summary>
+
+`512`
+
+![w10_transf_part1_embedding_paper.png](assets/w10_transf_part1_embedding_paper.png "w10_transf_part1_embedding_paper.png")
+
+</details>
+
+<details>
+<summary>What built-in functionality in PyTorch can we use to implement an embedding table?</summary>
+
+[`nn.Embedding`](https://pytorch.org/docs/stable/generated/torch.nn.Embedding.html)
+
+</details>
+
+<details>
+<summary>Open the paper and find the section where the authors detail what post-processing operation they perform after the embedding layer?</summary>
+
+They scale the outputs of the embedding layer by $\sqrt{d_{model}}$.
+
+![w10_transf_part1_embedding_paper2.png](assets/w10_transf_part1_embedding_paper2.png "w10_transf_part1_embedding_paper2.png")
+
+This ensures that the token embeddings and the positional encodings are on the same scale.
+
+</details>
+
+## Positional encoding
+
+<details>
+<summary>If we regard the positional encoding as a function, what does it take as input and what does it return as output?</summary>
+
+Input: Embedding vectors.
+Output: Positional encodings.
+
+</details>
+
+<details>
+<summary>Why is it needed?</summary>
+
+By processing everything all at once, we've lost the information about the position of each token, so we add it back using positional encoding.
+
+</details>
+
+<details>
+<summary>Draw a diagram as an example.</summary>
+
+We add a vector of the same size to the token embeddings.
+
+![w10_transf_part1_pos_encoding.png](assets/w10_transf_part1_pos_encoding.png "w10_transf_part1_pos_encoding.png")
+
+</details>
+
+<details>
+<summary>Open the paper and find the method the authors use to obtain the values of the positional encoding.</summary>
+
+They use the function `sin` for values in even indices and the function `cos` for values in odd indices.
+
+![w10_transf_part1_embedding_paper3.png](assets/w10_transf_part1_embedding_paper3.png "w10_transf_part1_embedding_paper3.png")
+
+Which changes our figure from above to be:
+
+![w10_transf_part1_pos_encoding2.png](assets/w10_transf_part1_pos_encoding2.png "w10_transf_part1_pos_encoding2.png")
+
+> **Remember**: `sin` for even values, `cos` for odd values.
+
+</details>
+
+<details>
+<summary>Why would the authors use those functions?</summary>
+
+Any periodic function can be used as it'll nicely model the sequence relationship between the tokens.
+
+![w10_transf_part1_pos_encoding3.png](assets/w10_transf_part1_pos_encoding3.png "w10_transf_part1_pos_encoding3.png")
+
+But why use two functions in the first place?
+
+This is a more loaded question. For every sine-cosine pair corresponding to frequency $\omega_k$, there is a linear transformation $M \in \mathbb{R}^{2\times2}$ (independent of $t$) where the following equation holds:
+
+$$M.\begin{bmatrix}
+     \sin(\omega_k . t) \\
+     \cos(\omega_k . t)
+ \end{bmatrix} = \begin{bmatrix}
+     \sin(\omega_k . (t + \phi)) \\
+     \cos(\omega_k . (t + \phi))
+ \end{bmatrix}$$
+
+Proof: [here](https://kazemnejad.com/blog/transformer_architecture_positional_encoding/).
+
+This enables the model to attend to relative positions by simply generating a transformation matrix, which only depends on $k$. Given any input PE(pos), the model can create the attention `query` matrix $Q$ that targets PE(pos+k) by multiplying the PE(pos) with a weight matrix $M$ (the transformation matrix). The weight matrix $M$, which could be parameters of a single feed-forward layer, can be learned during the training process.
+
+If only one of the functions was used, this property would not hold.
+
+**Note that in more recent versions the complexity of the positional encoding has decreased as people started just passing it as another set of learnable parameters.**
+
+</details>
+
+<details>
+<summary>How can we implement positional encoding?</summary>
+
+1. Create a matrix with zeros that will be `max_seq_length x d_model`.
+   - We'll fill in this matrix with the values for the positional encoding.
+   - The ides is to have the token IDs on each row and their encoding on the columns, so mapping token ID to encoding.
+2. Create a vector with the indices from `0` to `max_seq_length - 1`. It'll store the positions that will be encoded with the functions `sin` and `cos`.
+3. Now, we have to implement these formulas:
+
+![w10_transf_part1_pos_encoding3.png](assets/w10_transf_part1_pos_encoding3.png "w10_transf_part1_pos_encoding3.png")
+
+One way to do this is by using two nested `for` loops - one for each row (token ID) and another for each embedding value (each such value depends both on the position of the token ID and on the position of the value itself):
+
+![w10_transf_part1_pos_encoding4.png](assets/w10_transf_part1_pos_encoding4.png "w10_transf_part1_pos_encoding4.png")
+
+Code taken from [here](https://machinelearningmastery.com/a-gentle-introduction-to-positional-encoding-in-transformer-models-part-1/).
+
+This could become inefficient, so let's show how it can be done in a vectorized way:
+
+The divisor is:
+
+![w10_transf_part1_pos_encoding5_start.png](assets/w10_transf_part1_pos_encoding5_start.png "w10_transf_part1_pos_encoding5_start.png")
+
+By utilizing properties of the logarithm we could rewrite it in the following way:
+
+![w10_transf_part1_pos_encoding5.png](assets/w10_transf_part1_pos_encoding5.png "w10_transf_part1_pos_encoding5.png")
+
+This is significant because it can be used to generate **all the divisors** (per row and column) for the positional encodings at once. Below we can see that only two divisors are necessary for a `4`-dimensional embedding since the divisor only changes every $2i$, where $i$ is the dimension. This repeats across each position:
+
+![w10_transf_part1_pos_encoding6.png](assets/w10_transf_part1_pos_encoding6.png "w10_transf_part1_pos_encoding6.png")
+
+4. In step 3. we generated all divisors. Now, we can go through all the:
+   - even indices and apply a function `sin` on the position multiplied by the divisor;
+   - odd indices and apply a function `cos` on the position multiplied by the divisor.
+
+The end result is a single vector in which all even indices have been encoded using the `sin` formula and all of the odd indices - the `cos` formula.
+
+</details>
+
+## Multi-head self-attention
+
+<details>
+<summary>How many parameters do attention blocks take as input?</summary>
+
+![w10_attention_mech.png](assets/w10_attention_mech.png "w10_attention_mech.png")
+
+- The idea is to apply **three sets of matrices** that through backpropagation would learn:
+  - the relationship between the tokens;
+  - the importance of each token.
+- Multi-head attention blocks:
+  - Clones input into $h$ **heads** (creates $h$ copies of the input, called **heads**).
+  - Applies different matrices in each head, leading to different patterns being captured.
+    - Think of this as having multiple filters in a Convolutional Neural Network.
+      - Each filter discovers a different pattern from the rest.
+      - Combined, they produce multiple points of view of the same input.
+
+</details>
+
+Three types of attention:
+
+- Self-attention.
+- Masked self-attention.
+- Cross-attention.
+
+![w10_transf_part2_sattention.png](assets/w10_transf_part2_sattention.png "w10_transf_part2_sattention.png")
+*By dvgodoy - https://github.com/dvgodoy/dl-visuals/?tab=readme-ov-file, CC BY 4.0, https://commons.wikimedia.org/w/index.php?curid=151216016*
+
+<details>
+<summary>Open the paper and find the two diagrams that illustrate the operations behind attention and how attention is used.</summary>
+
+![w10_transf_part2_sattention_internal.png](assets/w10_transf_part2_sattention_internal.png "w10_transf_part2_sattention_internal.png")
+
+- **Q**: Indicate what each token is "looking for" in other tokens.
+- **K**: The "content" of each token that other tokens might find relevant.
+- **V**: Contains the actual content to be aggregated or weighted, based on attention scores.
+
+</details>
+
+<details>
+<summary>Open the paper and find the formula for attention.</summary>
+
+![w10_transf_part2_sattention_formula.png](assets/w10_transf_part2_sattention_formula.png "w10_transf_part2_sattention_formula.png")
+
+![w10_transf_part2_sattention_formula_viz.png](assets/w10_transf_part2_sattention_formula_viz.png "w10_transf_part2_sattention_formula_viz.png")
+
+</details>
+
+### Step 1
+
+<details>
+<summary>The token embeddings get turned into Q, K, and V. By looking at the paper, can you intuit how this may be happening?</summary>
+
+1. Pass the positional encodings into $h$ different attention heads.
+2. Each head:
+   1. Has three `3` different `nn.Linear` transformations (usually without biases). These are referred to as the projections that will form `Q`, `K`, `V`.
+      - The input dimension is $d_{model}$.
+      - The output dimension of these linear layers is called `head_size`.
+        - In the paper they refer to it as $d_k$.
+      - The `head_size` is typically evenly distributed between heads to make up $d_{model}$. So, if $d_{model} = 512$ and $h = 8$, then $d_k = 512 / 8 = 64$.
+   2. Passes the received input through these linear transformations.
+   3. The results are the matrices `Q`, `K`, `V`.
+   4. Perform Scaled Dot-Product Attention.
+   5. Concatenate the results.
+   6. Linearly transform the concatenation back to the shape of the input.
+
+![w10_transf_part2_sattention_step1.png](assets/w10_transf_part2_sattention_step1.png "w10_transf_part2_sattention_step1.png")
+![w10_transf_part2_sattention_step22.png](assets/w10_transf_part2_sattention_step22.png "w10_transf_part2_sattention_step22.png")
+![w10_transf_part2_sattention_internal.png](assets/w10_transf_part2_sattention_internal.png "w10_transf_part2_sattention_internal.png")
+
+Here's what happens as the first step in each head ($X = K = V = Q$, where $X$ are the encoded tokens):
+
+![w10_transf_part2_sattention_step1_viz2.png](assets/w10_transf_part2_sattention_step1_viz2.png "w10_transf_part2_sattention_step1_viz2.png")
+
+Transforming each token's embeddings into these roles helps the model learn more nuanced token relationships.
+
+</details>
+
+### Step 2
+
+For each *query* vector, calculate a score with each *key* vector that determines how much focus to place on that *key* vector.
+
+![w10_transf_part2_sattention_formula_viz.png](assets/w10_transf_part2_sattention_formula_viz.png "w10_transf_part2_sattention_formula_viz.png")
+
+The score is calculated by taking the dot product of the *query* vector with each *key* vector of the respective word we’re scoring.
+
+So if we’re processing the self-attention for the word in position `#1`, the first score would be the dot product of `q1` and `k1`. The second score would be the dot product of `q1` and `k2`.
+
+![w10_transf_part2_sattention_formula_viz2.png](assets/w10_transf_part2_sattention_formula_viz2.png "w10_transf_part2_sattention_formula_viz2.png")
+
+### Steps 3 and 4
+
+Divide the scores by the square root of the head size and pass the result through the `softmax` function.
+
+<details>
+<summary>Open the paper and find the head size used by the authors.</summary>
+
+$64$.
+
+![w10_transf_part2_sattention_dk.png](assets/w10_transf_part2_sattention_dk.png "w10_transf_part2_sattention_dk.png")
+
+</details>
+
+<details>
+<summary>Open the paper and find why dividing by the square root of "d_k" is needed.</summary>
+
+It leads to having more stable gradients for larger values of $d_k$.
+
+![w10_transf_part2_sattention_dk_why_div.png](assets/w10_transf_part2_sattention_dk_why_div.png "w10_transf_part2_sattention_dk_why_div.png")
+
+</details>
+
+Softmax normalizes the scores so they’re all positive and add up to $1$.
+
+Here's how we can continue the example:
+
+![w10_transf_part2_sattention_steps34.png](assets/w10_transf_part2_sattention_steps34.png "w10_transf_part2_sattention_steps34.png")
+
+### Steps 5 and 6
+
+Multiply each `Value` vector by the softmax score and sum up the results.
+
+The intuition is to keep intact the values of the word(s) we want to focus on, and remove irrelevant words (ex. by multiplying them by tiny numbers like $0.001$).
+
+![w10_transf_part2_sattention_steps56.png](assets/w10_transf_part2_sattention_steps56.png "w10_transf_part2_sattention_steps56.png")
+
+When working with matrices this means multiplying the `Values` matrix, which are the token encodings, by the **attention weights** matrix to update the encodings with the attention information.
+
+![w10_transf_part2_sattention_steps562.png](assets/w10_transf_part2_sattention_steps562.png "w10_transf_part2_sattention_steps562.png")
+
+### Combining outputs
+
+When we have multiple heads, their outputs get concatenated and linearly projected:
+
+![w10_transf_part2_sattention_final.png](assets/w10_transf_part2_sattention_final.png "w10_transf_part2_sattention_final.png")
+
+![w10_transf_part2_sattention_dc.png](assets/w10_transf_part2_sattention_dc.png "w10_transf_part2_sattention_dc.png")
+
+## Masking in the encoder
+
+<details>
+<summary>Why would the encoder need a mask?</summary>
+
+- The encoder shouldn't pay attention to padding tokens.
+- The formula would change as follows:
+
+$$\mathrm{Attention}(Q, K, V, M) = \mathrm{softmax}\left(\frac{QK^T}{\sqrt{d_k}}M\right)V$$
+
+</details>
+
+<details>
+<summary>What data type would the mask hold?</summary>
+
+It would be best if the mask holds values, $0$ and $1$, where
+
+- $0$ means that this is a `pad` token and it should receive $0$ attention;
+- $1$ means that this is not a `pad` token and it should receive attention.
+
+</details>
+
+<details>
+<summary>What shape should the mask be in?</summary>
+
+- Since the dot product produces a shape `batch_size` x `maximum_sequence_length` x `maximum_sequence_length` (how much attention each token should pay to each other token), the mask should should also be in that dimension.
+- Note that the source mask is most easily created out of the matrix with the token ids that has shape `batch_size` x `maximum_sequence_length`.
+- To get it to that dimension, we can:
+  1. Generate a matrix with $1$s of the size of the input (`batch_size` x `maximum_sequence_length`).
+  2. Change the $1$s that are on indices of padding tokens to $0$.
+  3. Use the function `unsqueeze(1)` to get size `batch_size` x $1$ x `maximum_sequence_length`.
+  4. Use the function `expand(-1, maximum_sequence_length, -1)` to get size `batch_size` x `maximum_sequence_length` x `maximum_sequence_length`.
+
+</details>
+
+<details>
+<summary>What part of the encoder will change and how?</summary>
+
+- The `forward` method of the attention `Head` will accept one more parameter that will be the `mask` to apply before `softmax`.
+- This would mean that the `forward` method of the class `MultiHeadAttention` would also change to accept the new `mask` parameter.
+- The `Head` will use the mask before applying the softmax as follows: `scores.masked_fill(key_padding_mask_expanded == 0, -torch.inf)`.
+  - This will have the effect of making the outputs of the softmax $0$ for all `pad` tokens.
+
+</details>
+
+## Position-wise Feed-Forward Networks
+
+<details>
+<summary>Open the paper and find the section in which position-wise feed-forward layers are discussed.</summary>
+
+![w10_pwffn.png](assets/w10_pwffn.png "w10_pwffn.png")
+
+</details>
+
+<details>
+<summary>How would we implement this layer in PyTorch?</summary>
+
+1. Apply one `Linear` layer (with `bias`) to go from $d_{model}$ to $d_{ff}$.
+2. Apply non-linearity using `ReLU`.
+3. Apply a second `Linear` layer (with `bias`) to go from $d_{ff}$ to $d_{model}$.
+
+</details>
+
+## Addition and Layer Normalization
+
+Deep neural networks by design suffer from unstable gradients:
+
+- either vanishing gradient;
+- or exploding gradient.
+
+<details>
+<summary>Dealing with the second problem is rather easy - how?</summary>
+
+Gradient clipping.
+
+</details>
+
+<details>
+<summary>How do the authors solve the first problem?</summary>
+
+They use skip connections / residual connections.
+
+![w10_skip_connections.png](assets/w10_skip_connections.png "w10_skip_connections.png")
+
+</details>
+
+<details>
+<summary>What do skip-connections do that allows the gradients to stabilize?</summary>
+
+![w10_skip_connections_graph.png](assets/w10_skip_connections_graph.png "w10_skip_connections_graph.png")
+
+- It distributes gradients equally to both of its branches.
+- This means that the gradients from the loss "hop" through multiple forked-off operations, keeping the gradient "alive".
+
+</details>
+
+- Layer Normalization is used to keep the scales and variances of inputs equal before and after the feed forward layer.
+  - It is similar to batch normalization, but normalizes the samples (dimension $1$), instead of the batches (dimension $0$):
+  - We'll use the built-in class [nn.LayerNorm](https://pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html#layernorm) passing in $d_{model}$.
+
+## The Encoder block
+
+<details>
+<summary>So, what are the steps that are followed in a single encoder layer?</summary>
+
+1. The input is passed through `MultiHeadAttention` along with the mask.
+2. That result is passed through dropout.
+3. That result is added to the input that was passed to the attention (this addition is the first skip connection).
+4. That result is passed through a `LayerNorm` instance.
+5. That result is passed through a feed-forward sublayer.
+6. That result is passed through the same dropout as in step `2.`.
+7. That result is added to the input that was passed to the feed-forward sublayer (this addition is the second skip connection).
+8. That result is passed through a different `LayerNorm` instance.
+9. The result is returned as the output of the encoder block.
+
+</details>
+
+<details>
+<summary>And so what are the steps that happen in the Transformer body of an encoder-only Transformer?</summary>
+
+1. The input is passed to a token embedding layer.
+2. That result is passed to a positional encoding layer.
+3. That result is passed to the first encoder layer along with the mask.
+4. The output of each encoding layer is passed to the next one.
+5. The output of the final encoding layer is returned as the output of the Transformer body.
+
+</details>
+
+<details>
+<summary>What is left is the transformer head - what are the steps if the head is a classification one?</summary>
+
+1. The input is passed through a linear layer that goes from `d_model` to `num_classes`.
+2. (Optionally) Softmax is applied to the logits.
+
+</details>
+
+<details>
+<summary>What if the head is a regression one?</summary>
+
+1. The input is passed through a linear layer that goes from `d_model` to `output_dim`.
+   - If a single numerical value is to be predicted, `output_dim = 1`.
+2. The result is returned.
+
+</details>
+
+## Encoder-only transformers
+
+![w10_encoder_only_architecture.png](assets/w10_encoder_only_architecture.png "w10_encoder_only_architecture.png")
+
+- Place emphasis on understanding and representing input data.
+- They excel at **supervised tasks** for **sequence classification**:
+  - any type of text classification:
+    - sentiment analysis;
+    - topic classification;
+    - etc.
+  - time-series prediction.
+  - etc.
+
+<details>
+<summary>Open the paper and find the rate of dropout.</summary>
+
+$0.1$
+
+![w10_dropout_rate.png](assets/w10_dropout_rate.png "w10_dropout_rate.png")
+
+</details>
+
+## Decoder-only transformers
+
+![w10_decoder_only_transformers.png](assets/w10_decoder_only_transformers.png "w10_decoder_only_transformers.png")
+
+These types of transformers excel at **autoregressive sequence generation**:
+
+- text generation;
+- text completion.
+
+### Masking in the decoder
+
+<details>
+<summary>When we were creating masks in the encoder, what did we ignore using them?</summary>
+
+The padding tokens.
+
+</details>
+
+<details>
+<summary>Should we ignore them in the decoder as well?</summary>
+
+Yes, though we should also ignore other tokens.
+
+</details>
+
+<details>
+<summary>Open the paper and find the section that details the differences between the attention in the decoder vs the encoder? What other tokens should we ignore?</summary>
+
+![w10_decoder_paper.png](assets/w10_decoder_paper.png "w10_decoder_paper.png")
+
+We should no pay attention to all **future tokens**.
+
+- Recall that our matrix with attention scores had every input token on the rows and on the columns.
+  - This means that there is attention from every token to every other token.
+  - In the decoder, however, we want to pay attention to all the tokens leading up to the current token to predict.
+
+</details>
+
+<details>
+<summary>And so how would the attention matrix look like for the sentence "I enter the cinema to watch a movie"</summary>
+
+![w10_example_attention_matrix.png](assets/w10_example_attention_matrix.png "w10_example_attention_matrix.png")
+
+</details>
+
+<details>
+<summary>How would we implement this on a technical level?</summary>
+
+1. Create a matrix - `tgt_mask`, with $1$s of shape `maximum_sequence_length` x `maximum_sequence_length`.
+
+```python
+mask = torch.ones(max_seq_len, max_seq_len)
+```
+
+2. Make `tgt_mask` a lower triangular matrix.
+
+```python
+torch.tril(mask)
+```
+
+3. Calculate the attention scores.
+
+```python
+attention_scores = q @ k.transpose(-2, -1) * dk**-0.5
+```
+
+4. Use `tgt_mask` to substitute all attention scores for which the entry in `tgt_mask` is $0$ with negative infinity.
+
+```python
+attention_scores = attention_scores.masked_fill(tgt_mask == 0, float('-inf'))
+```
+
+</details>
+
+### Decoder layer
+
+The decoder layer is the same as the encoder layer we created before:
+
+- multi-head attention;
+- feed-forward sublayer;
+- layer normalizations and dropouts before and after.
+
+The only difference is that the padding mask has been replaced with the causal attention mask in the forward pass.
+
+## Encoder-decoder-only transformers
+
+### Cross-attention + `LayerNorm`
+
+1. Queries come from the decoder.
+2. Keys and values come from the encoder.
+3. They are combined into a new attention layer, called `cross-attention`.
+   - In our implementation, this will be another multihead attention block, but this time we'll have to modify it, to accept three different parameters for the input.
+     - In the encoder and decoder self-attention layers, those three parameters will all be the same.
+     - In the cross-attention:
+       - the queries will be the outputs of the self-attention of the decoder;
+       - the keys and values will come as the output of the encoder.
+
+![w10_encoder_decoder_diagram.png](assets/w10_encoder_decoder_diagram.png "w10_encoder_decoder_diagram.png")
+
+![w10_example_translation.png](assets/w10_example_translation.png "w10_example_translation.png")
+
+### Some changes required
+
+The `forward` method of the single decoder layer will now accept two more parameters. So in total it'll have $4$ parameters:
+  - `x`: the input to the self-attention of the decoder;
+  - `y`: the output of the encoder;
+  - `tgt_mask`: the target mask;
+  - `cross_mask`: the padding mask to be used in the encoder.
+  - Those parameters would need to be accepted in the decoder block and passed to each layer.
+
+We should then be able to compose the two classes in the final class `Transformer`:
+
+```python
+class Transformer(nn.Module):
+  def __init__(self, vocab_size, d_model, num_heads, num_layers, d_ff, max_seq_len, dropout_rate):
+    super().__init__()
+    self.encoder = TransformerEncoder(vocab_size, d_model, num_heads, num_layers, d_ff, dropout, max_seq_len)
+    self.decoder = TransformerDecoder(vocab_size, d_model, num_heads, num_layers, d_ff, dropout, max_seq_len)
+  
+  def forward(self, x, src_mask, tgt_mask):
+    encoder_output = self.encoder(x, src_mask)
+    decoder_output = self.decoder(x, encoder_output, tgt_mask, src_mask)
+    return decoder_output
+```
+
+## Using a pre-built architecture
+
+PyTorch provides a high-level class in `torch.nn` to quickly define the architecture - [`nn.Transformer`](https://pytorch.org/docs/stable/generated/torch.nn.Transformer.html#transformer).
+
+```python
+import torch.nn as nn
+
+model = nn.Transformer(
+  d_model=512,
+  nhead=8,
+  num_encoder_layers=6,
+  num_decoder_layers=6,
+)
+
+print(model)
+```
+
+- `d_model`: Dimensionality of model inputs.
+- `nheads`: Number of attention heads.
+- `num_encoder_layers`: Number of encoder layers.
+- `num_decoder_layers`: Number of decoder layers.
+
+```console
+Transformer(
+  (encoder): TransformerEncoder(
+    (layers): ModuleList(
+      (0-5): 6 x TransformerEncoderLayer(
+        (self_attn): MultiheadAttention(
+          (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512, bias=True)
+        )
+        (linear1): Linear(in_features=512, out_features=2048, bias=True)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (linear2): Linear(in_features=2048, out_features=512, bias=True)
+        (norm1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        (norm2): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        (dropout1): Dropout(p=0.1, inplace=False)
+        (dropout2): Dropout(p=0.1, inplace=False)
+      )
+    )
+    (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+  )
+  (decoder): TransformerDecoder(
+    (layers): ModuleList(
+      (0-5): 6 x TransformerDecoderLayer(
+        (self_attn): MultiheadAttention(
+          (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512, bias=True)
+        )
+        (multihead_attn): MultiheadAttention(
+          (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512, bias=True)
+        )
+        (linear1): Linear(in_features=512, out_features=2048, bias=True)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (linear2): Linear(in_features=2048, out_features=512, bias=True)
+        (norm1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        (norm2): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        (norm3): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        (dropout1): Dropout(p=0.1, inplace=False)
+        (dropout2): Dropout(p=0.1, inplace=False)
+        (dropout3): Dropout(p=0.1, inplace=False)
+      )
+    )
+    (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+  )
+)
+```

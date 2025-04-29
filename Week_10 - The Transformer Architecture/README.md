@@ -181,6 +181,20 @@ Apply it on the output of `Task 2` and print the shape of the result and the enc
 
 Set the seed of PyTorch to `123`.
 
+In the `__init__` we'll have to create a vector with the values of the sine and cosine functions. We'll need to use this vector in the `forward` call to add it to the received embeddings. If we store the vector with the positional encodings directly in `self`, PyTorch will treat it as a set of learnable parameters. One way to turn this off is the using the function [`register_buffer`](https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module.register_buffer). It's used to tell PyTorch to not consider a set of numbers a learnable parameter.
+
+The goal is to have something like this:
+
+```python
+def __init__(self, d_model, max_seq_length):
+    super().__init__()
+    # create "pe" here (don't store it in self explicitly)
+    self.register_buffer('pe', pe.unsqueeze(0)) # use "register_buffer" to put it in self
+
+def forward(self, x):
+    return x + self.pe[:, :x.size(1)] # use as if it was in self
+```
+
 **Acceptance criteria:**
 
 1. Positional encoding is implemented as shown in the Transformer paper and in `notes.md`.
