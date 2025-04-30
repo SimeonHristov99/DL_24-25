@@ -5343,7 +5343,7 @@ backbone = nn.Sequential(
   *list(vgg.features.children())
 )
 
-input_dimension = backbone[0].out_features
+input_dimension = backbone[0].out_channels
 
 classifier = nn.Sequential(
   nn.Linear(input_dimension, 512),
