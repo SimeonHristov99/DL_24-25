@@ -27,7 +27,7 @@ Due to randomness, your output may vary.
 python task01.py
 ```
 
-![w07_task01_result.png](../assets/w07_task01_result.png "w07_task01_result.png")
+![w07_task01_result.jpeg](../DATA/w07_task01_result.jpeg "w07_task01_result.jpeg")
 
 ## Task 02
 
