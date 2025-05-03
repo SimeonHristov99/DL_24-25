@@ -74,7 +74,7 @@ Let's define a convolutional block as a sequence of `2` pairs of convolutional a
 
 Define a U-Net with the following architecture:
 
-- An initial convolutional layer to transform the input channels into `64` feature maps.
+- An initial block of convolutions to transform the input channels into `64` feature maps.
 - An encoder with `3` convolutional blocks:
   - block `1`: takes `64` channels, outputs `128` channels.
   - block `2`: takes `128` channels, outputs `256` channels.
