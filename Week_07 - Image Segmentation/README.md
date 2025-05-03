@@ -123,13 +123,13 @@ Define a neural network with the U-Net architecture that solves the task of sema
 
 **Description:**
 
-Define a neural network that solves the task of panoptic segmentation on the dataset `relabelled_coco`. It is present in our `DATA` folder and you'll find a subfolder `masks` in it as well as a `JSON` file that has everything you need to start on the task. Load and explore the `JSON` file. You'll see it has several keys, among them:
+Define a neural network that solves the task of panoptic segmentation on the dataset `relabelled_coco`. It is present in our `DATA` folder and you'll find a subfolder `masks` in it as well as a `JSON` file with metainformation. Load and explore the `JSON` file. You'll see it has several keys, among them:
 
-- `images`: holds the maps between the image in the `COCO` dataset and its corresponding mask.
+- `images`: holds the maps between the images in the `COCO` dataset and their corresponding masks. Use the links there to download the images locally.
 - `annotations`: holds the segmentation maps / masks of each image and maps them to the classes.
 - `categories`: all classes and what they mean.
 
-Use the approach we discussed in class to perform panoptic segmentation.
+Use the approach we discussed in class to perform panoptic segmentation. You can check out available pretrained models in the [PyTorch hub](https://pytorch.org/hub/) and in [Torchvision](https://pytorch.org/vision/main/models).
 
 **Acceptance criteria:**
 
