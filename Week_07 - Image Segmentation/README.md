@@ -125,7 +125,7 @@ Define a neural network with the U-Net architecture that solves the task of sema
 
 Define a neural network that solves the task of panoptic segmentation on the dataset `relabelled_coco`. It is present in our `DATA` folder and you'll find a subfolder `masks` in it as well as a `JSON` file with metainformation. Load and explore the `JSON` file. You'll see it has several keys, among them:
 
-- `images`: holds the maps between the images in the `COCO` dataset and their corresponding masks. Use the links there to download the images locally.
+- `images`: holds the maps between the images in the `COCO` dataset and their corresponding masks. Use the `images` folder to load the corresponding images.
 - `annotations`: holds the segmentation maps / masks of each image and maps them to the classes.
 - `categories`: all classes and what they mean.
 
