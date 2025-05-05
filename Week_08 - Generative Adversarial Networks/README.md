@@ -31,8 +31,8 @@ Due to randomness while sampling, your output may vary.
 Define three variants of `Generator` - `Discriminator` pairs as discussed in `notes.md`:
 
 - First one uses regular `Linear` layers and no convolutions.
-- The second one replaces the `Linear` layers with convolutional ones, but not adhere to the `GCGAN` architecture guidelines.
-- The third one uses convolutional layers adhering to the `GCGAN` architecture guidelines.
+- The second one replaces the `Linear` layers with convolutional ones, but not adhere to the `DCGAN` architecture guidelines.
+- The third one uses convolutional layers adhering to the `DCGAN` architecture guidelines.
 
 Instantiate an object from each of the three variants. Output their total number of parameters.
 
@@ -81,7 +81,7 @@ Sample and show `9` new images from the trained model.
 
 **Description:**
 
-Define a GAN with convolutional layers, but not adhering to the GCGAN guidelines.
+Define a GAN with convolutional layers, but not adhering to the DCGAN guidelines.
 
 Using it create a program (training, evaluation and testing included) that outputs new images of Pokemons using the dataset `pokemon_sprites`.
 
@@ -90,7 +90,7 @@ Sample and show `9` new images from the trained model.
 **Acceptance criteria:**
 
 1. The architectures uses convolutional layers.
-2. The architecture is naive in that it does not adhere to the GCGAN guidelines.
+2. The architecture is naive in that it does not adhere to the DCGAN guidelines.
 3. `tqdm` is used to show training, validation and testing.
 4. An appropriate metric is used to evaluate model performance.
 5. `9` new images are sampled from the trained model.
@@ -99,13 +99,13 @@ Sample and show `9` new images from the trained model.
 
 **Description:**
 
-Define and use a GCGAN to create a program (training, evaluation and testing included) that outputs new images of Pokemons using the dataset `pokemon_sprites`.
+Define and use a DCGAN to create a program (training, evaluation and testing included) that outputs new images of Pokemons using the dataset `pokemon_sprites`.
 
 Sample and show `9` new images from the trained model.
 
 **Acceptance criteria:**
 
-1. A GCGAN model is created.
+1. A DCGAN model is created.
 2. `tqdm` is used to show training, validation and testing.
 3. An appropriate metric is used to evaluate model performance.
 4. `9` new images are sampled from the trained model.
