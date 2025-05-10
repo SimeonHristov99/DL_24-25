@@ -59,10 +59,10 @@ The split in groups is formal. You can come whenever it suits you.
 
 ## Schedules
 
-- [X] Homework 1: 04/05.04 - 04.05.
-- [ ] Homework 2: 10/11.05 - 01.06.
+- [X] Homework 1: 04.04 - 04.05.
+- [ ] Homework 2: 10.05 - 08.06.
 - [X] Exam: 10.05. Room: 120 (209 if 120 is full). Time: 10 am - 12 pm (2 hours). Content: coding + a few theoretical questions.
-- [ ] Projects: [10/11.05 .. date of defense]
+- [ ] Projects: 10.05 - 20.06.
 
 ## Resources
 
