@@ -321,6 +321,17 @@
     - [Cross-attention + `LayerNorm`](#cross-attention--layernorm)
     - [Some changes required](#some-changes-required)
   - [Using a pre-built architecture](#using-a-pre-built-architecture)
+- [Week 11 - Bigram language model using counting](#week-11---bigram-language-model-using-counting)
+  - [Generating human names](#generating-human-names)
+  - [Character-level language model](#character-level-language-model)
+  - [An $n$-gram language model](#an-n-gram-language-model)
+  - [Building out a character-level bigram language model](#building-out-a-character-level-bigram-language-model)
+  - [The Multinomial Distribution](#the-multinomial-distribution)
+  - [Sampling from a multinomial distribution with PyTorch](#sampling-from-a-multinomial-distribution-with-pytorch)
+    - [The `Generator` class in PyTorch](#the-generator-class-in-pytorch)
+    - [Sampling with a `Generator`](#sampling-with-a-generator)
+  - [Negative Log Likelihood](#negative-log-likelihood)
+  - [Model Smoothing and Regularization](#model-smoothing-and-regularization)
 
 # Week 01 - Hello, Deep Learning. Implementing a Multilayer Perceptron
 
@@ -9125,3 +9136,554 @@ Transformer(
   )
 )
 ```
+
+# Week 11 - Bigram language model using counting
+
+## Generating human names
+
+- Our goal for the next few weeks is to create models that can generate human-like names (like the ones they were trained on).
+- We're going to try out three approaches:
+  1. Character-level bigram language model built just from counting (no fancy neural networks and backpropagation).
+  2. Character-level bigram language model using a proper neural network (with a single `Linear` layer).
+  3. Multilayer perceptron (MLP) character-level language model.
+
+We hope to get results similar to these:
+
+```text
+mona
+kayah
+see
+med
+rylla
+emmaniendra
+gracee
+daeliah
+miloelle
+elieanana
+leigh
+malaia
+noshuder
+shiriel
+kinde
+jennox
+teus
+kunzey
+dariyah
+faeh
+```
+
+## Character-level language model
+
+<details>
+<summary>What is a language model?</summary>
+
+An algorithm that returns probabilities for the possible next token in a sequence.
+
+</details>
+
+<details>
+<summary>What is a character-level language model?</summary>
+
+- When the tokens are characters.
+- The language model is therefore:
+  - modelling sequences of characters;
+  - able to predict the next character in a sequence of characters.
+
+</details>
+
+## An $n$-gram language model
+
+<details>
+<summary>What do you know about these types of language models?</summary>
+
+$n$-gram language models are statistical models over sequences of tokens:
+
+- if the tokens are words, then we have a [word $n$-gram language model](https://en.wikipedia.org/wiki/Word_n-gram_language_model);
+- if they are characters, then we have a character-level language model.
+
+</details>
+
+<details>
+<summary>What does "n" refer to?</summary>
+
+$n$ = length of the sequence = size of the context.
+
+</details>
+
+<details>
+<summary>Can a token be a sequence of characters (but not a full word) or a number of words (but not a full sentence)?</summary>
+
+Yep - actually, such methods are used in GPT-3.5 and GPT-4. Feel free to read more about [Byte pair encoding](https://en.wikipedia.org/wiki/Byte_pair_encoding).
+
+</details>
+
+<details>
+<summary>What is the assumption that drives the logic of such models?</summary>
+
+The probability of the next token in a sequence depends only on a fixed size window of previous tokens.
+
+</details>
+
+<details>
+<summary>What is then a bigram model?</summary>
+
+When only one previous token is considered to predict the current/next one.
+
+</details>
+
+<details>
+<summary>What is then a trigram model?</summary>
+
+When two previous tokens are considered to predict the current/next one.
+
+</details>
+
+<details>
+<summary>And so, what is then an n-gram model?</summary>
+
+When $n - 1$ previous tokens are considered to predict the current/next one.
+
+</details>
+
+## Building out a character-level bigram language model
+
+The first thing we think about when creating a model is the data. Here are the first few names in our training dataset:
+
+```text
+emma
+olivia
+ava
+isabella
+```
+
+<details>
+<summary>What would the training examples for our model look like?</summary>
+
+- Every name has quite a few examples packed in it.
+- An existence of a word like `isabella` is telling us that:
+  1. The character `i` is likely to be followed by the character `s`.
+  2. The character `s` is likely to be followed by the character `a`.
+  3. The character `a` is likely to be followed by the character `b`.
+  4. The character `b` is likely to be followed by the character `e`.
+  5. The character `e` is likely to be followed by the character `l`.
+  6. The character `l` is likely to be followed by the character `l`.
+  7. The character `l` is also likely to be followed by the character `a`.
+
+</details>
+
+<details>
+<summary>However, we have a little bit more information - which bigrams did we miss?</summary>
+
+1. We also know that `i` is likely to start a sequence.
+2. And `a` is likely to end a sequence.
+
+</details>
+
+<details>
+<summary>How can we solve this problem?</summary>
+
+We can introduce special tokens - `<S>` for "start-of-sequence/word token", and `<E>` for "end-of-sequence/word token".
+
+We would then get this:
+
+1. `<S>i` (short for: `<S>` is followed by `i`)
+2. `is` (short for: `i` is followed by `s`)
+3. `sa` (short for: `s` is followed by `a`)
+4. `ab` (short for: `a` is followed by `b`)
+5. `be` (short for: `b` is followed by `e`)
+6. `el` (short for: `e` is followed by `l`)
+7. `ll` (short for: `l` is followed by `l`)
+8. `la` (short for: `l` is followed by `a`)
+9. `a<E>` (short for: `a` is followed by `<E>`)
+
+</details>
+
+<details>
+<summary>How can we use this information to proceed with our task?</summary>
+
+1. We can **count** the number of times each possible bigram appears in the training set.
+2. We can use those counts to get a **probability** distribution over the next character given a current one.
+3. We can then **sample** from this distribution (each character will get a weight) - this is also known as the [Multinomial distribution](https://en.wikipedia.org/wiki/Multinomial_distribution).
+
+</details>
+
+<details>
+<summary>Technical question: how would it be best for us to store those counts?</summary>
+
+Since the possible bigrams are not that much - `28` (including `SOS` and `EOS`), we can just have a matrix of size `28x28` in which each element:
+
+- is of the form `xy`, meaning `the character "x" is followed by the character "y"`;
+- holds how many times `the character "x" is followed by the character "y"` in the training dataset.
+
+</details>
+
+By doing so we'll get a matrix that looks like this:
+
+![counts_01](assets/w11_counts_01.png?raw=true "counts_01.png")
+
+<details>
+<summary>What are two problems with this matrix?</summary>
+
+It has unnecessary information - the bottom row is only zeros as is the second to last column. This is because:
+
+- it's impossible for something to follow the `<E>` token;
+- and it's impossible for the `<S>` token to follow a character.
+
+Thus, we are wasting space enumerating impossible situations (bigrams).
+
+</details>
+
+<details>
+<summary>How can we overcome this?</summary>
+
+Let's replace `<S>` and `<E>` with `.` and place the enumerations of `.` to be the beginning of the matrix.
+
+</details>
+
+We would then get this:
+
+![counts_02](assets/w11_counts_02.png?raw=true "counts_02.png")
+
+<details>
+<summary>What would our next step be and why?</summary>
+
+We'd convert each row from counts to probabilities.
+
+This is so that, for example, when we have the character `.` (beginning of a sentence) we can tell what's the most likely next character.
+
+</details>
+
+## The Multinomial Distribution
+
+<details>
+<summary>What do you know about it?</summary>
+
+Ok, let's explain it with examples.
+
+</details>
+
+- You have a coin.
+- Your experiment is throwing that coin $1$ time and checking whether it landed on `heads`. It's either going to be $1$ or $0$.
+
+<details>
+<summary>What distribution do you use to model these 0s and 1s?</summary>
+
+[Bernoulli distribution](https://en.wikipedia.org/wiki/Bernoulli_distribution): $K = 2$ outcomes, $n = 1$ trial.
+
+</details>
+
+- You have a coin.
+- Your experiment is throwing that coin $n$ times and counting the total number of times it landed on `heads`. The result is a number from $0$ to $n$.
+
+<details>
+<summary>What distribution do you use to model this count?</summary>
+
+[Binomial distribution](https://en.wikipedia.org/wiki/Binomial_distribution): $K = 2$ outcomes, $n >= 1$ trial.
+
+</details>
+
+- You now have a dice.
+- Your experiment is throwing that dice $1$ time and checking whether it landed on $6$. It's either going to be $1$ or $0$.
+
+<details>
+<summary>What distribution do you use to model these 0s and 1s?</summary>
+
+[Categorical distribution](https://en.wikipedia.org/wiki/Categorical_distribution): $K >= 2$ outcomes, $n = 1$ trial.
+
+</details>
+
+- You have a dice.
+- Your experiment is throwing that dice $n$ times and counting:
+  - the total number of times it landed on $1$
+  - and the total number of times it landed on $2$
+  - and the total number of times it landed on $3$
+  - and the total number of times it landed on $4$
+  - and the total number of times it landed on $5$
+  - and the total number of times it landed on $6$
+
+<details>
+<summary>What distribution do you use to model these counts?</summary>
+
+[Multinomial distribution](https://en.wikipedia.org/wiki/Multinomial_distribution): $K >= 2$ outcomes, $n >= 1$ trial(s).
+
+</details>
+
+- Generalization of the binomial distribution.
+- The number of outcomes is allowed to be greater than $2$.
+- `You give me probabilities for integers and I'll give you integers that are sampled according to those probabilities.`
+- Available in PyTorch as [`torch.multinomial`](https://pytorch.org/docs/stable/generated/torch.multinomial.html#torch-multinomial).
+
+## Sampling from a multinomial distribution with PyTorch
+
+### The [`Generator` class](https://pytorch.org/docs/stable/generated/torch.Generator.html#generator) in PyTorch
+
+- If we regard `torch.manual_seed` as the "functional" way to set the seed, then using `Generator` is the "OOP" way.
+- Used as a keyword argument in many [in-place random sampling functions](https://pytorch.org/docs/stable/torch.html#inplace-random-sampling).
+
+### Sampling with a `Generator`
+
+```python
+g = torch.Generator().manual_seed(42)
+p = torch.rand(3, generator=g)
+p
+```
+
+The above would always produce:
+
+```console
+tensor([0.8823, 0.9150, 0.3829])
+```
+
+Let's normalize and draw from the multinomial distribution:
+
+```python
+import torch
+g = torch.Generator().manual_seed(42)
+p = torch.rand(3, generator=g)
+p /= p.sum()
+print(p) # tensor([0.4047, 0.4197, 0.1756])
+drawn = torch.multinomial(p, num_samples=1000, replacement=True, generator=g)
+print(f'Proportion of 0: {drawn[drawn == 0].shape[0] / drawn.shape[0]}') # Proportion of 0: 0.404
+print(f'Proportion of 1: {drawn[drawn == 1].shape[0] / drawn.shape[0]}') # Proportion of 1: 0.425
+print(f'Proportion of 2: {drawn[drawn == 2].shape[0] / drawn.shape[0]}') # Proportion of 2: 0.171
+```
+
+Notice how the probability of each index dictates how often it gets drawn.
+
+<details>
+<summary>So, if we have to use our model to create a new name, what are the steps to follow?</summary>
+
+1. Create a string with a `.`.
+2. Get the row that stores the probabilities of the characters that can follow `.`.
+3. Sample an index using the probabilities.
+4. Look up that index to see which letter it corresponds to. Let's say it's `m`.
+5. Add `m` to the initial string. It is now `.m`.
+6. Get the row that stores the probabilities of the characters that can follow `m`.
+7. Sample an index using the probabilities.
+8. Look up that index to see which letter it corresponds to. Let's say it's `a`.
+9. Add `a` to the initial string. It is now `.ma`.
+10. And so on...
+
+</details>
+
+<details>
+<summary>When do we end the process?</summary>
+
+Two possibilities:
+
+- either we sample the character `.` again;
+- or we have a predefined `max_sequence_length` and we stop once that many characters are sampled.
+
+</details>
+
+## Negative Log Likelihood
+
+Let's explore how we can evaluate the quality of our model.
+
+<details>
+<summary>How would the baseline model work?</summary>
+
+The baseline / "dumbest" model would predict everything as equally likely, so each probability of a bigram pair would be $1/27 = 0.037$.
+
+</details>
+
+<details>
+<summary>How would we know that our model has learned anything?</summary>
+
+If our model assigns probabilities above $0.037$, then it has learned some pattern.
+
+</details>
+
+Let's say that after we create the table with the probabilities, we check what probabilities the model assigns to the bigrams formed by the first `3` names and we get this:
+
+![w11_probs_tr_set.png](assets/w11_probs_tr_set.png "w11_probs_tr_set.png")
+
+<details>
+<summary>In the idea situation what values would we want to have?</summary>
+
+We would want to have all values close to $1$, since that means that the model has learned the pattern in the training set.
+
+</details>
+
+<details>
+<summary>Can we calculate a single number that would say how likely the model is to generate the names it was trained on?</summary>
+
+We can estimate the likelihood of the data (i.e. that the model would generate names like the ones it was trained on). This would be equivalent to the product of all probabilities assigned by the model for all training bigrams.
+
+</details>
+
+<details>
+<summary>What would a good model do with this number?</summary>
+
+It would [maximize the likelihood](https://en.wikipedia.org/wiki/Maximum_likelihood_estimation).
+
+</details>
+
+Let's define it mathematically:
+
+${\displaystyle L = \prod_{i=1}^n p(y_i)}$
+
+<details>
+<summary>What is the problem of directly applying this?</summary>
+
+- All of the probabilities are between $0$ and $1$.
+- If we multiply them we're going to get a very small number:
+  - It will become even smaller as more probabilities are present.
+
+</details>
+
+<details>
+<summary>How can we solve this problem?</summary>
+
+We can take the $\log$ of the product!
+
+$\log$ is:
+
+- monotonically increasing;
+- can better "distinguish" between very small numbers (we plug-in $x$, it gives us $y$);
+
+![w11_log_from_0_to_1.png](assets/w11_log_from_0_to_1.png "w11_log_from_0_to_1.png")
+
+- and has this very nice equivalence: $\log (abc) = \log a + \log b + \log c$
+- the base is usually $e$, though it can vary.
+
+The formula would then become:
+
+${\displaystyle L = \sum_{i=1}^n \ln(p(y_i))}$
+
+</details>
+
+<details>
+<summary>How large can that value get?</summary>
+
+The largest possible log-likelihood is $0$.
+
+</details>
+
+<details>
+<summary>Why is this a problem?</summary>
+
+Because these are not the semantics we want out of a loss function. We want to minimize loss functions.
+
+</details>
+
+<details>
+<summary>How can we solve this?</summary>
+
+We can measure the negative log-likelihood!
+
+The formula would then become:
+
+${\displaystyle L = - \sum_{i=1}^n \ln(p(y_i))}$
+
+</details>
+
+And finally, for convenience, we usually normalize the values of the loss functions using the number of used samples, so the final version of the $NLL$ loss is:
+
+${\displaystyle NLL = -\frac{1}{n} \sum_{i=1}^n \ln(p(y_i))}$
+
+We've heard about the loss function [Cross-entropy](https://en.wikipedia.org/wiki/Cross-entropy). It's actually the same as calling $NLL$ after passing the logits through $Softmax$:
+
+- Here's the implementation of it in C++: <https://github.com/pytorch/pytorch/blob/e0ff6a21d8bf3935f4332fb18b40b48472f9b648/aten/src/ATen/native/LossNLL.cpp#L607-L612>.
+- So, then:
+
+```python
+F.nll_loss(-log(softmax(logits, dim=1)),targets)
+```
+
+is equivalent to:
+
+```python
+F.cross_entropy(logits,targets)
+```
+
+But wait - this:
+
+$$\text{NLL} = -\frac{1}{n} \sum_{i=1}^n \ln(p(y_i))$$
+
+is different from this
+
+$$\text{CrossEntropy}(y, \hat{y}) = -\frac{1}{n} \sum_{j=1}^{n} \sum_{i=1}^{C} y_i \log(\hat{y}_i)$$
+
+, right?
+
+Actually, they are the same thing.
+
+- $y_i$ is the true label for class $i$. In most classification tasks, this is one-hot encoded, meaning:
+  - $y_i = 1$ for the correct class $t$;
+  - $y_i = 0$ for all other classes.
+
+For any single sample only one $y_i$ will be $1$, so we can simplify the summation to:
+
+$$\text{CrossEntropy}(y, \hat{y}) = -\log(\hat{y}_t)$$
+
+Suppose we have $3$ classes, and the true class is class $2$. The model outputs:
+
+$$\hat{y} = [0.1, 0.7, 0.2]$$
+
+Then the true label vector is:
+
+$$y = [0, 1, 0]$$
+
+The cross entropy loss becomes:
+
+$$-\left(0 \cdot \log(0.1) + 1 \cdot \log(0.7) + 0 \cdot \log(0.2)\right) = -\log(0.7)$$
+
+## Model Smoothing and Regularization
+
+In the previous section we saw how we can calculate the probability that our model would predict any given name. We start testing it out and for the word `jaguar` the model returns $-3.5$.
+
+<details>
+<summary>Does this mean that the model is likely to generate it or no?</summary>
+
+This is far from $0$, so it's not very likely to generate it.
+
+</details>
+
+<details>
+<summary>What number would we expect to get for the word "jqaguar" compared to "jaguar"?</summary>
+
+We would expect something more negative, but actually if we run this through the model, we would get $\inf$!
+
+</details>
+
+<details>
+<summary>Why is that?</summary>
+
+By storing the true counts we start to miss edge-cases (the model loses its novelty):
+
+- it won't be able to generate bigrams it hasn't seen:
+  - the counts would be `0` as the training set does not contain examples of them;
+  - thus, the model would assign `probability=0` if checked for unseen bigrams.
+  - when the loss is calculated, we can get $\inf$ because `log(0)` is `undefined`.
+
+But this is not ok - the model should be able to generate a name that is rather uncommon, but still possible - uncommon names exist in real life.
+</details>
+
+<details>
+<summary>How can we fix this?</summary>
+
+We can utilize a technique called **model smoothing** to overcome this:
+
+- smoothing is used to regulate the probability assigned to words that have unseen bigrams;
+- it has various forms: you can read more [here](http://mlwiki.org/index.php/Smoothing_for_Language_Models) and [here](https://github.com/akash18tripathi/Language-Modelling-and-Smoothing-techniques?tab=readme-ov-file#smoothing-in-language-modeling);
+- we'll use a very simple form: just start counting from $1$ instead of $0$;
+  - we can add smoothing at the step in which we're turning the counts into probabilities - instead of turning the raw counts, we'll use `counts + 1`. This variation is known as `+1 smoothing`.
+
+Using `+1 smoothing` ensures every possible bigram, even those not present in our training dataset, has been "seen" by the model at least `1` time. As expected very low probabilities would be assigned to words containing unseen bigrams, but at least they wouldn't be zero.
+
+</details>
+
+<details>
+<summary>What would happen if we start increasing those "fake" counts - what if it was 1000 instead of 1?</summary>
+
+This would lead to more uniformly distributed probabilities all bigrams will be more equally likely to get predicted.
+
+</details>
+
+<details>
+<summary>So in the end it seems that this is making our model more dumb in exchange to produce unconventional results. What is this technique (that introduce more bias to reduce the variance) called?</summary>
+
+Model regularization!
+
+</details>
