@@ -16,6 +16,7 @@ Create the training set for the neural network from the `names.txt` file.
 
 1. Two tensors are created - `xs` and `ys`. The tensor `xs` holds the index (position in the alphabet) of the character and `ys` holds the index of the character that should follow it.
 2. The dataset is comprised of integer values.
+3. The solution comprises solely of custom code - no layers or classes from `torch` should be used.
 
 **Test case:**
 
@@ -37,6 +38,7 @@ One hot encode `xs` and `ys`.
 
 1. Each subtensor has a length of `27`.
 2. The data type of both datasets is `float`.
+3. The solution comprises solely of custom code - no layers from `torch.nn` should be used.
 
 **Test case:**
 
@@ -64,6 +66,7 @@ Create a single neuron without a bias and an activation function and pass the tr
 
 1. The above architecture is implemented.
 2. The shape of the output is `(n, 1)` where `n` is the number of examples passed.
+3. The solution comprises solely of custom code - no layers from `torch.nn` should be used.
 
 **Test case:**
 
@@ -86,6 +89,7 @@ Create the neural network with `27` neurons in the hidden layer that we discusse
 **Acceptance criteria:**
 
 1. The test cases pass.
+2. The solution comprises solely of custom code - no layers from `torch.nn` should be used.
 
 **Test cases:**
 
@@ -125,6 +129,7 @@ Note that running the script multiple times, produces different values for the l
 
 1. The test cases for the word `emma` passes.
 2. All print statements match!
+3. The solution comprises solely of custom code - no layers from `torch.nn` should be used.
 
 **Test cases:**
 
@@ -200,6 +205,7 @@ Output the number of examples used for training and the loss on each epoch. Afte
 **Acceptance criteria:**
 
 1. The test case passes.
+2. The solution comprises solely of custom code - no layers from `torch.nn` should be used.
 
 **Test cases:**
 
@@ -326,6 +332,7 @@ Add regularization when calculating the loss. Use $\lambda=0.01$. Output the obt
 
 1. The test case passes.
 2. Regularization is added.
+3. The solution comprises solely of custom code - no layers from `torch.nn` should be used.
 
 **Test cases:**
 
@@ -447,6 +454,7 @@ Generate `10` new words with the model. What do you notice?
 **Acceptance criteria:**
 
 1. The test case passes.
+2. The solution comprises solely of custom code - no layers from `torch.nn` should be used.
 
 **Test cases:**
 
