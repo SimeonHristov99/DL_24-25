@@ -45,8 +45,8 @@ The split in groups is formal. You can come whenever it suits you.
     1. Group 1: :white_check_mark: **12.05, Monday, 7:15 pm, 107**
     2. Group 2: :white_check_mark: **07.05, Wednesday, 7:15 pm, 107**
 12. Session 12:
-    1. Group 1: **14.05, Wednesday, 7:15 pm, 107**
-    2. Group 2: 13.05, Tuesday, 7:30 pm, 120
+    1. Group 1: :white_check_mark: **14.05, Wednesday, 7:15 pm, 107**
+    2. Group 2: :white_check_mark: 13.05, Tuesday, 7:30 pm, 120
 13. Session 13:
     1. Group 1: 19.05, Monday, 7:15 pm, 107
     2. Group 2: 20.05, Tuesday, 7:30 pm, 120

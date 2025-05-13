@@ -332,6 +332,7 @@
     - [Sampling with a `Generator`](#sampling-with-a-generator)
   - [Negative Log Likelihood](#negative-log-likelihood)
   - [Model Smoothing and Regularization](#model-smoothing-and-regularization)
+- [Week 12 - Building a bigram language model using a neural network](#week-12---building-a-bigram-language-model-using-a-neural-network)
 
 # Week 01 - Hello, Deep Learning. Implementing a Multilayer Perceptron
 
@@ -9687,3 +9688,373 @@ This would lead to more uniformly distributed probabilities all bigrams will be 
 Model regularization!
 
 </details>
+
+# Week 12 - Building a bigram language model using a neural network
+
+<details>
+<summary>What is a deep learning model?</summary>
+
+A set of parameters (weights and biases).
+
+</details>
+
+<details>
+<summary>What was our model in the previous week?</summary>
+
+A 2D matrix with probabilities.
+
+</details>
+
+<details>
+<summary>What kind of model was it?</summary>
+
+It was a statistical model (based on counting), not a deep learning model.
+
+</details>
+
+<details>
+<summary>What are the downsides we saw with this approach?</summary>
+
+- The model is not flexible - it can't do feature engineering; can't produce `novel` names.
+- The model requires very high quality data.
+
+</details>
+
+<details>
+<summary>What steps would a neural network need to perform to solve our problem?</summary>
+
+1. Receive a single character as an input.
+2. It goes through some weights.
+3. The output is be a probability distribution over the next character in the sequence.
+
+</details>
+
+<details>
+<summary>What benefits do we get?</summary>
+
+- We can evaluate any setting of the parameters: their number, how they interact, etc.
+- In the end, we **hope** to get a more flexible model that can generate more human-like names, performing feature engineering by itself to learn the hidden patterns.
+
+</details>
+
+<details>
+<summary>Are we expecting the neural network to get a lower loss?</summary>
+
+No.
+
+- The network should converge to the loss we've observed via counting (`2.4540`) since it is litterally "the best we can do".
+- The best solution is counting, we don't expect the NN to beat it.
+- It's like teaching a neural network to prove the counts.
+
+<details>
+<summary>But then why are we using a neural network?</summary>
+
+- It is not because it'll be better than counting.
+- It's because **NNs are more scalable** and we can further "complexify" them.
+  - As data and the complexity of the task (trigram, more letters, etc) grow, it's a lot:
+    - easier for a neural network to find patterns and produce results (letting it **figure out the most optimal way of doing it**);
+    - harder to manually code the solution, storing gigabytes in a table (in-memory, btw!).
+      - There isn't an obvious way in which we could use multiple previous characters using only tables - there will be way too many combinations of what previous characters could be.
+
+</details>
+
+</details>
+
+<details>
+<summary>How would the training dataset look like?</summary>
+
+- We'll have `xs` and `ys`.
+- Each sample has one characteristic: its value `x`.
+- Each label is the character that should follow `x`.
+
+</details>
+
+<details>
+<summary>How would the training example(s) for "emma" look like?</summary>
+
+There are $5$ separate examples:
+
+```text
+. e
+e m
+m m
+m a
+a .
+```
+
+Which would translate to:
+
+```python
+xs = tensor([0, 5, 13, 13, 1])
+ys = tensor([5, 13, 13, 1, 0])
+```
+
+</details>
+
+<details>
+<summary>How would we feed-in our training examples?</summary>
+
+- Our examples are integers but they don't have inherent natural ordering
+  - the character `m` may have a value `5` but that does not mean that it's "greater" than the character `a` with a value of `1`.
+
+We can use **the one hot encoding technique** to avoid the problem of ordinality.
+
+Example:
+
+| Fruit  | Categorical value of fruit | Price |
+| ------ | -------------------------- | ----- |
+| apple  | 1                          | 5     |
+| mango  | 2                          | 10    |
+| apple  | 1                          | 15    |
+| orange | 3                          | 20    |
+
+The output after applying one-hot encoding on the data is given as follows:
+
+| apple | mango | orange | price |
+| ----- | ----- | ------ | ----- |
+| 1     | 0     | 0      | 5     |
+| 0     | 1     | 0      | 10    |
+| 1     | 0     | 0      | 15    |
+| 0     | 0     | 1      | 20    |
+
+</details>
+
+Pytorch already has an implementation for one hot encoding a tensor of numbers: [torch.nn.functional.one_hot](https://pytorch.org/docs/stable/generated/torch.nn.functional.one_hot.html#torch-nn-functional-one-hot). We can use it directly.
+
+If we have `xs = torch.tensor([0, 5, 13, 13, 1])`, the we can use `F.one_hot` on it.
+
+<details>
+<summary>What value would we put for the "num_classes" parameter `F.one_hot(xs, num_classes=???)`?</summary>
+
+$27$
+
+</details>
+
+<details>
+<summary>Why?</summary>
+
+The number of possible next characters is $27$.
+
+</details>
+
+<details>
+<summary>What would happen if we didn't set "num_classes" when encoding "xs"?</summary>
+
+We would get subvectors with length $14$ which would not be able to encode all examples properly.
+
+Without `num_classes`:
+
+```python
+import torch
+import torch.nn.functional as F
+xs = torch.tensor([0, 5, 13, 13, 1])
+print(F.one_hot(xs))
+print(F.one_hot(xs).shape)
+```
+
+```console
+tensor([[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+torch.Size([5, 14])
+```
+
+With `num_classes`:
+
+```python
+import torch
+import torch.nn.functional as F
+xs = torch.tensor([0, 5, 13, 13, 1])
+print(F.one_hot(xs, num_classes=27))
+print(F.one_hot(xs, num_classes=27).shape)
+```
+
+```console
+tensor([[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+torch.Size([5, 27])
+```
+
+</details>
+
+<details>
+<summary>So what would our training set look like?</summary>
+
+A tensor of one hot encoded indices.
+
+</details>
+
+<details>
+<summary>Looking at the above examples, what is the data type of the resulting tensor (after one hot encoding)?</summary>
+
+Integer.
+
+</details>
+
+<details>
+<summary>What data type do neural networks work with (accept as input, process and output)?</summary>
+
+Floating-point numbers.
+
+</details>
+
+<details>
+<summary>How can we deal with this?</summary>
+
+We can cast the result using `.float`.
+
+</details>
+
+<details>
+<summary>Architecturally, how would our model look like so far?</summary>
+
+![nn_v1](assets/w12_nn_v1.png?raw=true "nn_v1.png")
+
+</details>
+
+<details>
+<summary>How can we continue the architecture?</summary>
+
+We can have a simple linear layer that accepts $27$ neurons and returns $27$ neurons (for every possible character).
+
+![nn_v2](assets/w12_nn_v2.png "nn_v2.png")
+
+</details>
+
+<details>
+<summary>What values should we give to the layer weights at initialization?</summary>
+
+- Let's use the standard normal distribution so as to give each of them a value that's very close to $0$.
+- PyTorch has built-in functionality for this: `torch.randn` - <https://pytorch.org/docs/stable/generated/torch.randn.html#torch.randn>.
+
+</details>
+
+Here is roughly what we'll get when we do the multiplication between the input and the weights:
+
+```console
+tensor([[-6.5284e-01,  3.2174e-02, -8.6152e-02,  3.3818e-01,  1.4050e-01,
+          1.2501e+00,  4.8419e-02, -9.4795e-01, -2.5459e-01, -1.5428e+00,
+         -1.4162e+00, -4.9870e-02, -1.3397e+00,  2.7990e+00, -2.2559e-01,
+         -1.0132e+00, -2.5008e-01,  8.5907e-02, -2.4204e-01, -9.8390e-01,
+          1.0928e+00,  4.8963e-01, -6.3705e-01,  1.6060e+00, -5.2040e-01,
+         -1.1006e+00, -1.7312e+00],
+        [ 5.9505e-01, -6.4982e-01, -1.8143e+00, -2.0155e-01, -1.7971e-01,
+         -1.1265e+00, -1.1601e+00, -5.0515e-01, -2.2379e-01, -8.0933e-01,
+          7.3219e-01, -2.9528e-01, -5.1804e-01,  1.4251e+00,  2.3924e-01,
+          1.6883e-01,  9.4835e-01,  5.6405e-02, -8.0089e-01, -1.5765e+00,
+          1.3998e+00, -6.0954e-01,  4.5337e-02, -4.2532e-01, -1.5304e+00,
+          5.1179e-01,  4.5007e-01
+        ...
+```
+
+Notice that the output currently is just a bunch of negative and positive numbers.
+
+<details>
+<summary>What do we want to get?</summary>
+
+Ideally, we want to get **counts** and via them **probabilities**.
+
+</details>
+
+<details>
+<summary>We don't have them - how can we get them?</summary>
+
+We can interpret the outputs as $\ln(counts)$!
+
+So then:
+
+$counts = e^{\ln(counts)}$
+
+```console
+tensor([[ 2.4181,  0.2485,  7.2132,  0.3435,  0.2001,  0.6504,  3.7926,  1.4240,
+          1.2924,  1.5735,  1.0622,  1.1639,  0.4037,  1.0887,  0.9408,  0.6145,
+          0.7605,  0.5209,  1.1012,  2.3544,  0.4258,  2.0838,  4.0306,  1.9755,
+          0.2821, 13.2988,  2.2822],
+        [ 0.4773,  1.2983,  3.1333,  1.3588,  0.6798,  7.2575,  3.6614,  3.1763,
+          0.6540,  0.3940,  4.3991,  0.4993,  0.4706,  1.6783,  1.5216,  2.5320,
+          1.0845,  1.0516,  1.3963,  0.8255,  0.3561,  0.2418,  0.2549,  1.4301,
+          1.5655,  1.9841,  2.3581
+        ...
+```
+
+Now, we won't get exactly integers, but this is ok - at least they'll be positive.
+
+</details>
+
+What we have above is equivalent to the `count` matrix we created in the previous week. Because our goal is have all of our parameters interact with the user input, we'll not be using a bias in this model.
+
+<details>
+<summary>How do we obtain the probabilities?</summary>
+
+We normalize the exponentiated result by the rows.
+
+Thus, the outputs of the network are now probabiltiies - we successfully reproduced last week's bigram language model 🥳!
+
+</details>
+
+<details>
+<summary>List the steps that occur for our neural network to accept a character and produce the character that should follow it.</summary>
+
+1. We turn the input character into a vector with all zeros, except a `1` at the index of the character (**one-hot encoding**).
+2. The vector goes through the neural network to produce a **probability distribution over all possible characters**.
+3. From this vector of probabilities we say that the next character is the one on the index with the **maximum probability**.
+
+</details>
+
+Recall that when counting we added "fake counts" to our `counts` matrix.
+
+<details>
+<summary>What was the added value of this operation?</summary>
+
+- This allowed us to make the distribution of the probabilities more uniform:
+  - this allowed the model to work with unseen bigrams
+    - it didn't assign $0$ probabilities anymore
+
+So, as that count increased every possible character became equally likely to follow the current one.
+
+</details>
+
+The gradient-based approach has an equivalent to smoothing.
+
+<details>
+<summary>What values would the logits be if every entry in "W" is "0"?</summary>
+
+$0$.
+
+</details>
+
+<details>
+<summary>What values would exponentiation produce?</summary>
+
+We would have $e^0$ which is $1$, so we'll get `1 / 27` as the probability for every possible character!!
+
+</details>
+
+Trying to incentivize the values of `W` to all be near `0` is equivalent to model smoothing! The process of model smoothing, as we discussed before, is called **regularization**.
+
+Adding regularization can help our model achieve greater generalization ability by **limiting the possibility of overfitting**. When working with neural networks regularization is added to the final value of the loss in the form of:
+
+$$\lambda \times \frac{1}{n} \sum_{w \in W}w^2$$
+
+where:
+
+- $\lambda$ is a regularization parameter - the higher it is, the higher the smoothing will be, the "dumb"-er our model would become.
+- $w$ is every weight.
+
+So the final loss becomes:
+
+$$J = softmax + \lambda \times \frac{1}{n} \sum_{w \in W}w^2$$
+
+The regularization loss would be `0` is every parameter in `W` is `0`. Now, when optimizing the network would have two goals:
+
+- not only will it try to make all the probabilities work out;
+- but it'll also be trying to minimize all of its parameters.
+
+The probabilities would want to all be `0` while at the same time reflect what is present in the data.
+
+> The amount of $\lambda$ is directly equivalent to the amount by which `counts` was increased!
