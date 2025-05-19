@@ -7170,7 +7170,7 @@ class Net(nn.Module):
   def __init__(self):
     super().__init__()
     self.rnn = nn.RNN(
-      input_size=96, # the number of features in the input
+      input_size=1, # the number of features in the input
       hidden_size=32, # a vector with 32 values for the memory
       num_layers=2, # stacking two RNNs together to form a stacked RNN, with the second RNN taking in outputs of the first RNN and computing the final results
       batch_first=True, # if True, then the input and output tensors are provided as (batch, seq, feature) instead of (seq, batch, feature)
