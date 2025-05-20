@@ -40,7 +40,7 @@ Instantiate an object from each of the three variants. Output their total number
 
 **Acceptance criteria:**
 
-1. The architectures of all three pairs of `Generator` - `Discriminator` classes matches ones shown in `notes.md`.
+1. The architectures of all three pairs of `Generator` - `Discriminator` classes match the ones shown in `notes.md`.
 2. The total number of parameters is outputted.
 
 **Test case:**
@@ -55,11 +55,11 @@ python task02.py
 Number of total parameters in Generator (linear only): 734,528.
 Number of total parameters in Discriminator (linear only): 722,945.
 
-Number of total parameters in Generator (linear only): 10,933,528.
-Number of total parameters in Discriminator (linear only): 10,884,865.
+Number of total parameters in Generator (conv layer, not following guidelines): 10,933,528.
+Number of total parameters in Discriminator (conv layer, not following guidelines): 10,884,865.
 
-Number of total parameters in Generator (linear only): 385,012,995.
-Number of total parameters in Discriminator (linear only): 303,469,057.
+Number of total parameters in Generator (DCGAN architecture): 385,012,995.
+Number of total parameters in Discriminator (DCGAN architecture): 303,469,057.
 ```
 
 ## Task 03
