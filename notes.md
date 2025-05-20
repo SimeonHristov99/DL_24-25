@@ -335,6 +335,17 @@
 - [Week 12 - Building a bigram language model using a neural network](#week-12---building-a-bigram-language-model-using-a-neural-network)
   - [Defining the architecture](#defining-the-architecture)
   - [Fighting overfitting](#fighting-overfitting-1)
+- [Week 13 - Multilayer Perceptron as a Generative model](#week-13---multilayer-perceptron-as-a-generative-model)
+  - [Problems with the previous approach(es)](#problems-with-the-previous-approaches)
+  - [How can we overcome them?](#how-can-we-overcome-them)
+  - [Implementing the solution ourselves](#implementing-the-solution-ourselves)
+  - [Recap of training techniques](#recap-of-training-techniques)
+    - [Faster training](#faster-training)
+    - [Optimal hyperparameter values](#optimal-hyperparameter-values)
+  - [Activations \& Gradients / How to do a health check of a neural network?](#activations--gradients--how-to-do-a-health-check-of-a-neural-network)
+    - [Fixing the initial loss](#fixing-the-initial-loss)
+    - [Fixing saturated activations](#fixing-saturated-activations)
+    - [Proper layer initialization](#proper-layer-initialization)
 
 # Week 01 - Hello, Deep Learning. Implementing a Multilayer Perceptron
 
@@ -9725,6 +9736,45 @@ It was a statistical model (based on counting), not a deep learning model.
 </details>
 
 <details>
+<summary>What would happen to the size of the table if we start increasing the context length?</summary>
+
+It'll grow exponentially with the length of the context.
+
+</details>
+
+<details>
+<summary>How many rows and columns would we need if we have 1 character of context?</summary>
+
+$27$.
+
+</details>
+
+<details>
+<summary>What if we take 2 characters of context (for predicting the third one)?</summary>
+
+$27 * 27 = 729$.
+
+</details>
+
+<details>
+<summary>What if we take 3 characters of context?</summary>
+
+$27 * 27 * 27 = 19,683$.
+
+</details>
+
+<details>
+<summary>What happens to the values in the table as it grows?</summary>
+
+It becomes more and more **sparse**:
+
+1. Way too few counts.
+2. Way more zeros.
+3. Need a much bigger (training) dataset to fill-in these zeros.
+
+</details>
+
+<details>
 <summary>What steps would a neural network need to perform to solve our problem?</summary>
 
 1. Receive a single character as an input.
@@ -10065,3 +10115,736 @@ The regularization loss would be `0` is every parameter in `W` is `0`. Now, when
 The probabilities would want to all be `0` while at the same time reflect what is present in the data.
 
 > The amount of $\lambda$ is directly equivalent to the amount by which `counts` was increased!
+
+# Week 13 - Multilayer Perceptron as a Generative model
+
+## Problems with the previous approach(es)
+
+<details>
+<summary>What were the limitations of the previous two approaches?</summary>
+
+1. The context size was small: $1$ (we took in one character and predicted the next one).
+2. The predictions were not great:
+
+```python
+['ya', 'syahavilin', 'dleekahmangonya', 'tryahe', 'chen', 'ena', 'da', 'amiiae', 'a', 'keles']
+```
+
+</details>
+
+## How can we overcome them?
+
+Paper: A Neural Probabilistic Language Model (<https://www.jmlr.org/papers/volume3/bengio03a/bengio03a.pdf>).
+
+<details>
+<summary>What happened to the values in the table from the first approach as it grew in size?</summary>
+
+It becomes more and more **sparse**:
+
+1. Way too few counts.
+2. Way more zeros.
+3. Need a much bigger (training) dataset to fill-in these zeros.
+
+</details>
+
+<details>
+<summary>Open the paper and find the technical term for the above "sparsification".</summary>
+
+The curse of dimensionality.
+
+</details>
+
+<details>
+<summary>Open the paper and find the type of task that the authors solve with their model.</summary>
+
+A word-level language model.
+
+![w13_paper02_task.png](assets/w13_paper02_task.png "w13_paper02_task.png")
+
+Keep in mind that our task is different - character-level language model.
+
+</details>
+
+<details>
+<summary>How big is their vocabulary?</summary>
+
+$17,000$
+
+![w13_paper01_vocab_size.png](assets/w13_paper01_vocab_size.png "w13_paper01_vocab_size.png")
+
+</details>
+
+<details>
+<summary>Find the name of the section in which the authors outline their solution.</summary>
+
+![w13_paper03_architecture.png](assets/w13_paper03_architecture.png "w13_paper03_architecture.png")
+
+</details>
+
+<details>
+<summary>What does the first point mean?</summary>
+
+We create a map / dictionary in which each word is mapped (associated) with a vector of size $m$.
+
+</details>
+
+<details>
+<summary>How many vectors do we have in that "m"-dimensional space?</summary>
+
+$17,000$
+
+</details>
+
+<details>
+<summary>How big are the feature vectors that the authors use?</summary>
+
+![w13_paper04_arch_fv_size.png](assets/w13_paper04_arch_fv_size.png "w13_paper04_arch_fv_size.png")
+
+</details>
+
+<details>
+<summary>How are the word vectors spread initially?</summary>
+
+They are initialized with random values, so they're spead at random locations.
+
+</details>
+
+<details>
+<summary>What are we learning then?</summary>
+
+We are learning that mapping - what values should each word have in the $m$-dimensional space.
+
+</details>
+
+<details>
+<summary>What would be the end result in the best scenario?</summary>
+
+1. Words that have similar meaning (for example synonyms) will end up in the same part of the space.
+2. Words that have opposite meaning will be very far apart.
+
+</details>
+
+<details>
+<summary>Find the section in the paper in which the authors explain their intiution?</summary>
+
+![w13_paper04_intuition1.png](assets/w13_paper04_intuition1.png "w13_paper04_intuition1.png")
+![w13_paper04_intuition2.png](assets/w13_paper04_intuition2.png "w13_paper04_intuition2.png")
+
+1. Suppose that the model has never seen the context `A dog was running in a ???` during training.
+2. If we discard the fact that we have a trained model, we have no reason to suspect what word could come next.
+3. However, if the model has seen the context `The cat is walking in the bedroom` and is associating `bedroom` with `room` it very well should predict `A dog was running in a room`.
+
+</details>
+
+<details>
+<summary>What is the number of the figure that shows the architecture visually?</summary>
+
+![w13_paper_figure.png](assets/w13_paper_figure.png "w13_paper_figure.png")
+
+</details>
+
+<details>
+<summary>What does the network take as input?</summary>
+
+The index of the word.
+
+</details>
+
+<details>
+<summary>What values can it take?</summary>
+
+`[0 .. 16,999]`
+
+</details>
+
+<details>
+<summary>What happens next?</summary>
+
+We do a look-up in a matrix $C$.
+
+</details>
+
+<details>
+<summary>What is the shape of that matrix?</summary>
+
+$17,000$ x $30$ (or $m$ in general)
+
+</details>
+
+<details>
+<summary>What is the goal of this matrix?</summary>
+
+Each index is plucking out a row from this matrix and therefore (each index) gets converted to an $m$-dimensional embedding vector.
+
+</details>
+
+<details>
+<summary>What happens next?</summary>
+
+Next is a hidden `nn.Linear` layer. Its size is a hyperparameter.
+
+</details>
+
+<details>
+<summary>What nonlinearity used?</summary>
+
+$tanh$
+
+</details>
+
+<details>
+<summary>What happens next?</summary>
+
+Next is the final `nn.Linear` layer.
+
+</details>
+
+<details>
+<summary>What is its size?</summary>
+
+$17,000$
+
+</details>
+
+<details>
+<summary>What are the parameters of the proposed model?</summary>
+
+- The weights of the matrix `C` holding the embeddings.
+- The weights and biases of the layer with `tanh` activations (the hidden layer).
+- The weights and biases of the layer with `softmax` activations (the final output layer).
+
+</details>
+
+## Implementing the solution ourselves
+
+<details>
+<summary>How would we implement an embedding layer?</summary>
+
+- It's an `nn.Linear` layer without biases.
+- In PyTorch it's built-in: <https://pytorch.org/docs/stable/generated/torch.nn.Embedding.html>.
+
+</details>
+
+<details>
+<summary>How would our training examples look like?</summary>
+
+We would first chop them up according to the context length: `block_size` (or `context_size - 1`) characters would be used to predict the next character:
+
+```text
+emma
+... -> e
+..e -> m
+.em -> m
+emm -> a
+mma -> .
+olivia
+... -> o
+..o -> l
+.ol -> i
+oli -> v
+liv -> i
+ivi -> a
+via -> .
+```
+
+We'll then convert each of them into indices:
+
+```text
+tensor([[ 0,  0,  0],
+        [ 0,  0,  5],
+        [ 0,  5, 13],
+        [ 5, 13, 13],
+        [13, 13,  1],
+        [ 0,  0,  0],
+        [ 0,  0, 15],
+        [ 0, 15, 12],
+        [15, 12,  9],
+        [12,  9, 22],
+        [ 9, 22,  9],
+        [22,  9,  1],
+...
+```
+
+</details>
+
+## Recap of training techniques
+
+We should be familiar with these techniques, but it never hurts to explain their use-cases again.
+
+### Faster training
+
+We can bump into one of two problems while training a large neural network:
+
+1. Long time for going through $1$ epoch.
+2. We cannot fit all the training examples into memory.
+
+<details>
+<summary>How can we deal with these problems?</summary>
+
+This happens because we're doing too many computations forwarding and backwarding a large number of examples for every single iteration.
+
+What we can do is sample a small portion of the training set and only forward, backward and update based on that little portion.
+
+- When the portion consists of $n$ examples, this is called minibatch gradient descent.
+- When the portion consists of $1$ example, this is called stochastic gradient descent.
+
+![w13_batch_gd.png](assets/w13_batch_gd.png "w13_batch_gd.png")
+
+Because we're only training with a small number of examples, the quality of gradient is lower.
+
+The benefit we get is that we can train faster and for longer achieving the same end goal. It's more efficient to have an approximate gradient and just make more steps, rather than have the exact gradient and take longer for just a fewer steps.
+
+</details>
+
+### Optimal hyperparameter values
+
+It can often be the case that we have a model with a lot of hyperparameters and in order to find the best values for them we're stuck with doing slight modifications by hand and waiting for the whole training pipeline to complete before we see what the results are.
+
+<details>
+<summary>How can we deal with these problems?</summary>
+
+`Grid searching`.
+
+Let's say we want to try out $n$ values for the learning rate.
+
+1. Create two tensors:
+
+- `lre`: holds the values for the exponents of the learning rate;
+- `lrs`: holds the values of the learning rate from these exponents.
+
+As a rule of thumb, most learning rates fall within the window of $[10^{-3}, 10^0]$.
+
+Example:
+
+```python
+lre = torch.linspace(-3, 0, n)
+lrs = 10**lre
+```
+
+What we're doing is stepping linearly between the exponents of the learning rates: from $0.001$ to $1$.
+
+2. Then:
+
+- train for $n$ epochs (has to be the same as the $n$ in step `1.`);
+- when updating the weights, step with the learning rate that's on the index of the epoch;
+- save the exponent of the learning rate and the loss in two lists.
+
+3. After training has completed, create a line plot with the learning rate on the $x$-axis and the value of the loss on the $y$-axis. The plot should look something similar to:
+
+![w13_lr_plot.png](assets/w13_lr_plot.png "w13_lr_plot.png")
+
+Search for the value after which the loss gets higher. This is your learning rate.
+
+4. After we find a good learning rate, we can utilize the technique known as **learning rate decay**. That is:
+
+- train for $n$ epochs;
+- lower the learning rate by a factor of $10$: for example, from $0.1$ to $0.01$;
+- train for another $m$ epochs, where `m << n`.
+
+In this way we can make even smaller steps as we get closer to the local minimum with the idea of going as close as possible to it.
+
+</details>
+
+## Activations & Gradients / How to do a health check of a neural network?
+
+We generally have two things to make sure are ok:
+
+- [ ] The initial value of the loss is logical.
+- [ ] There are no dead neurons.
+
+### Fixing the initial loss
+
+Let's say that we start training and experimenting and at some point reach a model, producing this diagram:
+
+![w13_step_vs_loss.png](assets/w13_step_vs_loss.png?raw=true "w13_step_vs_loss.png")
+
+<details>
+<summary>What is the problem here?</summary>
+
+The initial loss is way to high.
+
+</details>
+
+<details>
+<summary>Ok - so what is the expected number?</summary>
+
+1. At initilization the network should have no reason to believe that one character is more likely to follow another.
+2. It should thus assign equal probabilities ($1/27$) to each of the possible next characters.
+3. The loss we would expect, therefore, would be $-log(1/27) = 3.29$.
+
+</details>
+
+<details>
+<summary>Why might this be happening?</summary>
+
+Because the distribution that comes out is not uniform.
+
+This means that the logits are very different from each other and take on extreme values - for some characters the network is very confident:
+
+- that they do follow the current ones;
+- that they do not follow the current ones.
+
+The problem is that the network is **very confidently wrong** and this makes the cross-entropy explode.
+
+</details>
+
+<details>
+<summary>How can we solve this?</summary>
+
+We make the logits be closer to each other:
+
+- be it around $0$;
+- or just making them equal to each other.
+
+Then the softmax would produce a more uniform output distribution.
+
+</details>
+
+<details>
+<summary>Which one of the options should we choose?</summary>
+
+Usually logits are kept centered around $0$ to have symmetry.
+
+</details>
+
+<details>
+<summary>Which part of the architecture should we change to alter the values of the logits?</summary>
+
+We should change the initial values in the last layer that goes from the hidden units to the predictions.
+
+</details>
+
+<details>
+<summary>What is this part comprised of?</summary>
+
+A weigth matrix $W$ and a vector of biases - $b$.
+
+</details>
+
+<details>
+<summary>With what values would we initialize these usually when we're not using built-in classes?</summary>
+
+With random values drawn from the standard normal distribution - using [torch-randn](https://pytorch.org/docs/stable/generated/torch.randn.html#torch-randn).
+
+</details>
+
+<details>
+<summary>What changes should we make to the bias and to the weights so that the logits that come out are clustered around 0?</summary>
+
+- Set the bias to all $0$s.
+- Multiply the weights by a small number (for example $0.1$ or $0.01$). This would reduce the variance further and make the values be closer to $0$.
+
+Compare this:
+
+```python
+torch.randn(10)
+```
+
+```console
+tensor([-0.2701, -1.1423, -0.1991, -0.0445,  0.4379, -0.9531, -0.0175,  2.2765,
+        -0.5381,  1.2188])
+```
+
+to this:
+
+```python
+torch.randn(10) * 0.1
+```
+
+```console
+tensor([-0.0513,  0.1014, -0.0775, -0.0139, -0.1651, -0.0809, -0.1528,  0.0290,
+        -0.0828,  0.1552])
+```
+
+</details>
+
+Doing so would lead us to obtaining this graph:
+
+![w13_lower_initial_loss.png](assets/w13_lower_initial_loss.png?raw=true "w13_lower_initial_loss.png")
+
+### Fixing saturated activations
+
+Let's print the activations from $tanh$:
+
+```console
+Shape: torch.Size([32, 200])
+tensor([[ 0.8100, -0.8997, -0.9993,  ..., -0.9097, -1.0000,  1.0000],
+        [-1.0000, -0.9571, -0.7145,  ...,  0.4898,  0.9090,  0.9937],
+        [ 0.9983, -0.3340,  1.0000,  ...,  0.9443,  0.9905,  1.0000],
+        ...,
+        [-1.0000,  0.9604, -0.1418,  ..., -0.1266,  1.0000,  1.0000],
+        [-1.0000, -0.4385, -0.8882,  ..., -0.3316,  0.9995,  1.0000],
+        [-1.0000,  0.9604, -0.1418,  ..., -0.1266,  1.0000,  1.0000]],
+       grad_fn=<TanhBackward0>)
+```
+
+<details>
+<summary>Do you notice anything unusual here?</summary>
+
+A lot of the values are $-1$ and $1$ (or very close to them).
+
+</details>
+
+<details>
+<summary>But we actually don't know whether these numbers are really that common or it just seems like that - how can we visually see how often a value is present in the tensor?</summary>
+
+We can do a histogram:
+
+![w13_activations_p1.png](assets/w13_activations_p1.png "w13_activations_p1.png")
+
+</details>
+
+<details>
+<summary>Yeah, -1 and 1 are common - what would that lead to?</summary>
+
+There is no gradient when backpropagating!
+
+Recall, that $tanh$ squashes inputs between $-1$ and $1$:
+
+![w13_tanh.png](assets/w13_tanh.png?raw=true "w13_tanh.png")
+
+Looking back to when we manually defined it, we had the following logic for doing the backward pass:
+
+```python
+def tanh(self) -> Value:
+
+    def backward():
+        self.grad += result.grad * (1 - result.data**2) # self.grad doesn't change when result.data is -1 and 1
+
+    data = (np.exp(2 * self.data) - 1) / (np.exp(2 * self.data) + 1)
+    result = Value(data=data, _children=(self, ), _op='tanh')
+    result._backward = backward
+    return result
+```
+
+The $tanh$ is saturated and very active - this prevents the network from learning.
+
+</details>
+
+<details>
+<summary>What is a dead neuron?</summary>
+
+A neuron that:
+
+- never changes the values of its weights and biases;
+- always receives $0$ gradient.
+
+Notice: dead nerons are permanent brain damage. The only way to fix them is by starting over.
+
+</details>
+
+<details>
+<summary>How can we check for dead neurons in the hidden layer?</summary>
+
+We can check whether any samples in our batch lead to activations the absolute value of which is above a certain threshold, for example, $0.99$.
+
+This can be done by plotting a boolean tensor:
+
+![w13_activations_p2.png](assets/w13_activations_p2.png "w13_activations_p2.png")
+
+</details>
+
+<details>
+<summary>What would indicate that we have dead neurons - white row, black row, a combination, something else?</summary>
+
+- Rows: batches.
+- Columns: neuron outputs (logits / pre-activations).
+
+So, if we have a white-only column that means that the neuron produced a very large/small activation for all samples in the batch and received hardly any updates.
+
+</details>
+
+<details>
+<summary>Why does this happen, though?</summary>
+
+Because the variance of the preactivations / logits is too large (there are a lot of values that are smaller than $-1$ and larger than $1$):
+
+![w13_activations_p3.png](assets/w13_activations_p3.png "w13_activations_p3.png")
+
+</details>
+
+<details>
+<summary>How can we fix that?</summary>
+
+- Set the bias to all $0$s or $0.01$.
+- Multiply the weights by a small number (for example $0.1$ or $0.01$ or $0.2$).
+
+By doing so we would get something like this which is much better:
+
+![w13_activations_fixed.png](assets/w13_activations_fixed.png?raw=true "w13_activations_fixed.png")
+
+</details>
+
+### Proper layer initialization
+
+Our discussion so far has produced some strange *magic* numbers. It seems as though we would have to hardcode them and try out different variations until we get something satisfying. There has to be a way to do this automatically.
+
+<details>
+<summary>In both of the above problems there was one culprit - what was it?</summary>
+
+The standard deviation / variance of the preactivations.
+
+</details>
+
+Ok, let's say I have this code:
+
+```python
+import torch
+import matplotlib.pyplot as plt
+x = torch.randn(1000, 10) # 1000 samples, each with 10 features
+w = torch.randn(10, 200) # turn each of the 10 features into 200
+y = x @ w
+print(x.mean(), x.std())
+print(y.mean(), y.std())
+plt.figure(figsize=(20, 5))
+plt.subplot(121)
+plt.hist(x.view(-1).tolist(), 50, density=True)
+plt.subplot(122)
+plt.hist(y.view(-1).tolist(), 50, density=True)
+plt.tight_layout()
+plt.show()
+```
+
+<details>
+<summary>What numbers do you expect to see on the first line of the output?</summary>
+
+$\sim0$ and $\sim1$
+
+</details>
+
+<details>
+<summary>Would the numbers on the second line of the output be larger or smaller than the ones on the first line?</summary>
+
+- The mean could change slightly (can go either direction, but by a small amount).
+- The variance will be much larger.
+
+```console
+tensor(0.0023) tensor(0.9991)
+tensor(0.0024) tensor(3.1895)
+```
+
+![w13_prod1.png](assets/w13_prod1.png "w13_prod1.png")
+
+</details>
+
+Now, we let's say we have this code:
+
+```python
+import torch
+import matplotlib.pyplot as plt
+k = 5
+x = torch.randn(1000, 10)
+w = torch.randn(10, 200) * k
+y = x @ w
+print(x.mean(), x.std())
+print(y.mean(), y.std())
+plt.figure(figsize=(20, 5))
+plt.subplot(121)
+plt.hist(x.view(-1).tolist(), 50, density=True)
+plt.subplot(122)
+plt.hist(y.view(-1).tolist(), 50, density=True)
+plt.tight_layout()
+plt.show()
+```
+
+<details>
+<summary>What would we get on the second line now compared to the second line before?</summary>
+
+The variance again will be much larger.
+
+```console
+tensor(-0.0056) tensor(1.0016)
+tensor(0.0393) tensor(15.6916)
+```
+
+![w13_prod2.png](assets/w13_prod2.png "w13_prod2.png")
+
+</details>
+
+Now, we let's say we have this code:
+
+```python
+import torch
+import matplotlib.pyplot as plt
+k = 0.05
+x = torch.randn(1000, 10)
+w = torch.randn(10, 200) * k
+y = x @ w
+print(x.mean(), x.std())
+print(y.mean(), y.std())
+plt.figure(figsize=(20, 5))
+plt.subplot(121)
+plt.hist(x.view(-1).tolist(), 50, density=True)
+plt.subplot(122)
+plt.hist(y.view(-1).tolist(), 50, density=True)
+plt.tight_layout()
+plt.show()
+```
+
+<details>
+<summary>What would we get on the second line now compared to the second line before?</summary>
+
+The variance will be much smaller.
+
+```console
+tensor(-0.0071) tensor(0.9955)
+tensor(-0.0001) tensor(0.1610)
+```
+
+![w13_prod3.png](assets/w13_prod3.png "w13_prod3.png")
+
+</details>
+
+<details>
+<summary>Ok, so what is the question / problem that we have to answer / solve?</summary>
+
+What is the value of $k$ that preserves a standard deviation of $1$?
+
+</details>
+
+The paper that gives an answer to this is the ["Kaiming init" paper](https://arxiv.org/abs/1502.01852).
+
+<details>
+<summary>Open it and find the formula the authors suggest using for obtaining the value of "k".</summary>
+
+$\sqrt{2/n_l}$
+
+![w13_kaiming_init_paper.png](assets/w13_kaiming_init_paper.png "w13_kaiming_init_paper.png")
+
+Implemented in PyTorch as [nn.init.kaiming_normal_](https://pytorch.org/docs/stable/nn.init.html#torch.nn.init.kaiming_normal_).
+
+- The authors of the paper studied the activation `ReLU`, so the above formula is only for it.
+- Depending on the activation function we would have slightly different numbers.
+  - If the activation function is a *squashing* one (i.e. has flat tails), we have positive *gain*:
+    - the possible gains are listed [here](https://pytorch.org/docs/stable/nn.init.html#torch.nn.init.calculate_gain)
+      - in `ReLU` was have `gain=2`, because we discard half of the population
+      - in our current example we don't use any activation, so we can regard it as an identity
+    - `mode='fan_in'` means that we use the number of incoming neurons.
+
+The correct answer, thus, for our case is to divide by the square root of the number of input features - in our case $10$.
+
+```python
+import torch
+import matplotlib.pyplot as plt
+x = torch.randn(1000, 10)
+w = torch.randn(10, 200) / 10**0.5
+y = x @ w
+print(x.mean(), x.std())
+print(y.mean(), y.std())
+plt.figure(figsize=(20, 5))
+plt.subplot(121)
+plt.hist(x.view(-1).tolist(), 50, density=True)
+plt.subplot(122)
+plt.hist(y.view(-1).tolist(), 50, density=True)
+plt.tight_layout()
+plt.show()
+```
+
+```console
+tensor(0.0005) tensor(0.9872)
+tensor(0.0005) tensor(1.0064)
+```
+
+![w13_prod4.png](assets/w13_prod4.png "w13_prod4.png")
+
+</details>
