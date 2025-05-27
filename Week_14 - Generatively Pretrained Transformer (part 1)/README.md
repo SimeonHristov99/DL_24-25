@@ -200,7 +200,7 @@ The first 1000 tokens: tensor([18, 47, 56, 57, 58,  1, 15, 47, 58, 47, 64, 43, 5
 
 **Description:**
 
-Split the dataset into $90%$ training and $10%$ testing sets. Output their shapes.
+Split the dataset into `90%` training and `10%` testing sets. Output their shapes.
 
 **Acceptance criteria:**
 
