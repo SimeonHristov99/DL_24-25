@@ -346,6 +346,11 @@
     - [Fixing the initial loss](#fixing-the-initial-loss)
     - [Fixing saturated activations](#fixing-saturated-activations)
     - [Proper layer initialization](#proper-layer-initialization)
+- [Week 14 - Generatively Pretrained Transformer (part 1)](#week-14---generatively-pretrained-transformer-part-1)
+  - [Block sizes](#block-sizes)
+    - [Single sample](#single-sample)
+    - [Batch of samples](#batch-of-samples)
+  - [Implementing an $n$-gram language model](#implementing-an-n-gram-language-model)
 
 # Week 01 - Hello, Deep Learning. Implementing a Multilayer Perceptron
 
@@ -10846,5 +10851,162 @@ tensor(0.0005) tensor(1.0064)
 ```
 
 ![w13_prod4.png](assets/w13_prod4.png "w13_prod4.png")
+
+</details>
+
+# Week 14 - Generatively Pretrained Transformer (part 1)
+
+In the last two sessions we are going to create a character-level language model that can generate text in the style of Shakespeare.
+
+Here's what we'll aim for:
+
+```text
+VIRGIA:
+
+VOLUToENTA:
+Help, to thou the priest, I'll tell you fair,
+If any it wis not mine abhorr'd;
+That I might, because perilars again,
+New, loving to go he accomptions,
+Eaping roughly; to the caius bosom.
+
+CORIOLANUS:
+Nay, dispossible and spit with past while.
+
+MENENIUS:
+Mighter!
+No, would he had not? What's he into this?
+Is myself? I think your danger he has saved.
+
+First Senator:
+Well, how Case you not sleep in your worse?
+
+First Murderer:
+Must of you scanderly clearly she god:
+Some comes y
+```
+
+<details>
+<summary>What would our first step be?</summary>
+
+Tokenizing the input text.
+
+</details>
+
+<details>
+<summary>What are the possible ways we can do it?</summary>
+
+1. Each character is a token (character-level tokenization).
+2. A chunk of characters, but not a whole word, is one token (subword tokenization).
+3. A word is a token (word-level tokenization).
+
+</details>
+
+<details>
+<summary>Can you give examples of algorithms that execute the second strategy?</summary>
+
+- [WordPiece](https://research.google/blog/a-fast-wordpiece-tokenization-system/);
+- [Byte Pair Encoding (BPE)](https://en.wikipedia.org/wiki/Byte-pair_encoding):
+  - Used by OpenAI: [tiktoken](https://github.com/openai/tiktoken?tab=readme-ov-file#-tiktoken)!
+- [SentencePiece](https://github.com/google/sentencepiece?tab=readme-ov-file#sentencepiece).
+
+Here's a demo of how to use `tiktoken` (running it would require `pip install tiktoken`):
+
+```python
+import tiktoken
+enc = tiktoken.get_encoding('gpt2')
+enc.n_vocab
+```
+
+```console
+50257
+```
+
+```python
+enc.encode('hii there')
+```
+
+```console
+[71, 4178, 612]
+```
+
+```python
+enc.decode([71, 4178, 612])
+```
+
+```console
+'hii there'
+```
+
+</details>
+
+<details>
+<summary>Which strategy would we be using?</summary>
+
+So far we've used the first one - we'll continue to stick with it.
+
+</details>
+
+<details>
+<summary>How would our strategy work?</summary>
+
+We'll encode each character with the position it's in in the sorted vocabulary.
+
+</details>
+
+## Block sizes
+
+### Single sample
+
+- We're going to refer to the amount of characters we use to predict the current one, with the term **block_size**.
+- We're also going to train our GPT to be able to predict with **variable-length input** (i.e. prediction for every position).
+
+If our block size is $8$ and we have the following sequence:
+
+```python
+[18, 47, 56, 57, 58,  1, 15, 47, 58]
+```
+
+<details>
+<summary>How many samples do we have in that sequence?</summary>
+
+$8$.
+
+Sample 1: given `[18]`, predict $47$.
+Sample 2: given `[18, 47]`, predict $56$.
+Sample 3: given `[18, 47, 56]`, predict $57$.
+Sample 4: given `[18, 47, 56, 57]`, predict $58$.
+Sample 5: given `[18, 47, 56, 57, 58]`, predict $1$.
+Sample 6: given `[18, 47, 56, 57, 58,  1]`, predict $15$.
+Sample 7: given `[18, 47, 56, 57, 58,  1, 15]`, predict $47$.
+Sample 8: given `[18, 47, 56, 57, 58,  1, 15, 47]`, predict $58$.
+
+</details>
+
+### Batch of samples
+
+We would want to have multiple examples fed at once to our model to keep the hardware busy.
+
+<details>
+<summary>Could you describe a process for creating a batch of randomly obtained sequences?</summary>
+
+1. Generate `batch_size` random integers in the interval `[0 .. len(data) - block_size)`.
+2. For every single one of those integers, get the next `block_size` characters. These will be the `xs`.
+3. For every single one of those integers, get the next `block_size + 1` characters. These will be the `yss`.
+
+</details>
+
+## Implementing an $n$-gram language model
+
+- The simplest possible model is a bigram language model. We're going to start with this idea, but use an arbitrary amount of context.
+- We'll implement it using a single `nn.Embedding` layer.
+  - It'll receive an input of size `(batch_size, sequence_length)`.
+  - Each element in the sequence would get embedded with a vector of size `vocab_size`. The result would be of shape `(batch_size, sequence_length, vocab_size)`.
+  - We'll treat this as the tensor with predictions and calculate the cross-entropy between those values and the targets.
+
+<details>
+<summary>What loss would our baseline model have if the number of possible characters is 65?</summary>
+
+$-\ln(1/65) = 4.174$
 
 </details>
