@@ -454,6 +454,7 @@ Generate `10` new words with the model. What do you notice?
 
 1. The test case passes.
 2. The solution comprises solely of custom code - no layers from `torch.nn` should be used.
+3. A comment is present with an answer to the question in the description.
 
 **Test cases:**
 
