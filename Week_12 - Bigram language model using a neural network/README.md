@@ -466,8 +466,6 @@ python task08.py"
 ['ya', 'syahavilin', 'dleekahmangonya', 'tryahe', 'chen', 'ena', 'da', 'amiiae', 'a', 'keles']
 ```
 
-The output above is the same as the first 10 words that were generated using the statistical approach.
-
 ## Task 9
 
 **Description:**
