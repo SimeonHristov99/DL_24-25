@@ -38,7 +38,6 @@ One hot encode `xs` and `ys`.
 
 1. Each subtensor has a length of `27`.
 2. The data type of both datasets is `float`.
-3. The solution comprises solely of custom code - no layers from `torch.nn` should be used.
 
 **Test case:**
 
