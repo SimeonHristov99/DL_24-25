@@ -241,7 +241,7 @@
   - [Evaluating GANs](#evaluating-gans)
     - [Fréchet Inception Distance](#fréchet-inception-distance)
   - [Deep Convolutional GAN](#deep-convolutional-gan)
-  - [Linearly interpolating corrdinates in $z$ space](#linearly-interpolating-corrdinates-in-z-space)
+  - [Linearly interpolating coordinates in $z$ space](#linearly-interpolating-coordinates-in-z-space)
 - [Week 09 - Recurrent Neural Networks. Language Models](#week-09---recurrent-neural-networks-language-models)
   - [Sequential data](#sequential-data)
   - [Electricity consumption prediction](#electricity-consumption-prediction)
@@ -6987,7 +6987,7 @@ The modified networks would therefore look as follows:
 
 ![w08_gcgan_architecture_low_level.png](assets/w08_gcgan_architecture_low_level.png "w08_gcgan_architecture_low_level.png")
 
-## Linearly interpolating corrdinates in $z$ space
+## Linearly interpolating coordinates in $z$ space
 
 Using the power of GANs we can see how they morph between states:
 
