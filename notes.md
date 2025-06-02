@@ -351,6 +351,21 @@
     - [Single sample](#single-sample)
     - [Batch of samples](#batch-of-samples)
   - [Implementing an $n$-gram language model](#implementing-an-n-gram-language-model)
+- [Week 15 - Generatively Pretrained Transformer (part 2)](#week-15---generatively-pretrained-transformer-part-2)
+  - [Implementing self-attention in a *Decoder*](#implementing-self-attention-in-a-decoder)
+    - [Setup](#setup)
+    - [Version 1](#version-1)
+    - [Version 2](#version-2)
+      - [Goal 1](#goal-1)
+      - [Goal 2](#goal-2)
+      - [Goal 3](#goal-3)
+      - [Applying version 2](#applying-version-2)
+    - [Version 3](#version-3)
+  - [The use-case for self-attention](#the-use-case-for-self-attention)
+  - [The solution](#the-solution)
+    - [The $K$ and the $Q$](#the-k-and-the-q)
+    - [The $V$](#the-v)
+  - [The crux](#the-crux)
 
 # Week 01 - Hello, Deep Learning. Implementing a Multilayer Perceptron
 
@@ -11010,3 +11025,608 @@ We would want to have multiple examples fed at once to our model to keep the har
 $-\ln(1/65) = 4.174$
 
 </details>
+
+# Week 15 - Generatively Pretrained Transformer (part 2)
+
+## Implementing self-attention in a *Decoder*
+
+### Setup
+
+We have $8$ tokens in each batch.
+
+Currently, they are not talking to each other when they're trying to predict the next character.
+
+**Goal: Make the tokens talk to each other so that the predictions are more informed of the context.**
+
+```python
+import torch
+torch.manual_seed(1337)
+B, T, C = 4, 8, 2
+xs = torch.randn(B, T, C)
+xs.shape
+```
+
+```console
+torch.Size([4, 8, 2])
+```
+
+<details>
+<summary>Which tokens should the token in position 5 communicate to?</summary>
+
+- Only to the tokens in positions $4$, $3$, $2$, and $1$.
+- In this way information flows only from the previous context to the current time step.
+
+</details>
+
+<details>
+<summary>Why not the others?</summary>
+
+The tokens in positions $6$, $7$, and $8$ are future tokens in the sequence. They are about to be predicted. It'll be a form of cheating as in the real world we don't know them.
+
+</details>
+
+### Version 1
+
+<details>
+<summary>What is the easiest way for tokens to communicate?</summary>
+
+Do the average of all the preceding elements.
+
+$$x[b, t] = mean_{i<=t}x[b,i]$$
+
+If I'm token $5$, I would want to take my channels ($C$) and all the previous channels and average them to get a feature vector that summarizes me in the context of my history.
+
+</details>
+
+<details>
+<summary>What is one problem with this approach?</summary>
+
+We lose the spatial information (how my history is ordered), but this is ok for now.
+
+</details>
+
+Here's an example implementation:
+
+```python
+xbow = torch.zeros((B, T, C))
+for b in range(B):
+  for t in range(T):
+    xprev = xs[b, :t+1] # (t, C)
+    xbow[b, t] = torch.mean(xprev, 0) # vertical average => (C,)
+
+print(xs[0])
+print(xbow[0])
+```
+
+```console
+tensor([[ 0.1808, -0.0700],
+        [-0.3596, -0.9152],
+        [ 0.6258,  0.0255],
+        [ 0.9545,  0.0643],
+        [ 0.3612,  1.1679],
+        [-1.3499, -0.5102],
+        [ 0.2360, -0.2398],
+        [-0.9211,  1.5433]])
+
+tensor([[ 0.1808, -0.0700],
+        [-0.0894, -0.4926],
+        [ 0.1490, -0.3199],
+        [ 0.3504, -0.2238],
+        [ 0.3525,  0.0545],
+        [ 0.0688, -0.0396],
+        [ 0.0927, -0.0682],
+        [-0.0341,  0.1332]])
+```
+
+### Version 2
+
+#### Goal 1
+
+I have this matrix $b$:
+
+```text
+b=
+tensor([[2., 7.],
+        [6., 4.],
+        [6., 5.]])
+```
+
+I want to get a matrix $c$ in which each element per column is the **sum of all the elements in that column** in $b$, i.e. I want to get this:
+
+```text
+c=
+tensor([[14., 16.],
+        [14., 16.],
+        [14., 16.]])
+```
+
+<details>
+<summary>How can I do it without "for" loops?</summary>
+
+We can use a matrix with all $1$s:
+
+```python
+torch.manual_seed(42)
+a = torch.ones(3, 3)
+b = torch.randint(0, 10, (3, 2)).float()
+c = a @ b
+print('a=')
+print(a)
+print('b=')
+print(b)
+print('c=')
+print(c)
+```
+
+```console
+a=
+tensor([[1., 1., 1.],
+        [1., 1., 1.],
+        [1., 1., 1.]])
+b=
+tensor([[2., 7.],
+        [6., 4.],
+        [6., 5.]])
+c=
+tensor([[14., 16.],
+        [14., 16.],
+        [14., 16.]])
+```
+
+</details>
+
+#### Goal 2
+
+I have this matrix $b$:
+
+```text
+b=
+tensor([[2., 7.],
+        [6., 4.],
+        [6., 5.]])
+```
+
+I want to get a matrix $c$ in which each element per row is the **sum of all the elements up to the current one in that column** in $b$, i.e. I want to get this:
+
+```text
+c=
+tensor([[ 2.,  7.],
+        [ 8., 11.],
+        [14., 16.]])
+```
+
+<details>
+<summary>How can I do it without "for" loops?</summary>
+
+We can convert `a` to be a matrix of lower-triangular form:
+
+```python
+torch.tril(torch.ones(3, 3))
+```
+
+```console
+tensor([[1., 0., 0.],
+        [1., 1., 0.],
+        [1., 1., 1.]])
+```
+
+And then we would get this:
+
+```python
+torch.manual_seed(42)
+a = torch.tril(torch.ones(3, 3))
+b = torch.randint(0, 10, (3, 2)).float()
+c = a @ b
+print('a=')
+print(a)
+print('b=')
+print(b)
+print('c=')
+print(c)
+```
+
+```console
+a=
+tensor([[1., 0., 0.],
+        [1., 1., 0.],
+        [1., 1., 1.]])
+b=
+tensor([[2., 7.],
+        [6., 4.],
+        [6., 5.]])
+c=
+tensor([[ 2.,  7.],
+        [ 8., 11.],
+        [14., 16.]])
+```
+
+</details>
+
+#### Goal 3
+
+I have this matrix $b$:
+
+```text
+b=
+tensor([[2., 7.],
+        [6., 4.],
+        [6., 5.]])
+```
+
+I want to get a matrix $c$ in which each element per row is the ***average* of all the elements up to the current one in that column** in $b$, i.e. I want to get this:
+
+```text
+c=
+tensor([[2.0000, 7.0000],
+        [4.0000, 5.5000],
+        [4.6667, 5.3333]])
+```
+
+<details>
+<summary>How can I do it without "for" loops?</summary>
+
+We can normalize `a` row-wise!
+
+```python
+torch.manual_seed(42)
+a = torch.tril(torch.ones(3, 3))
+a = a / torch.sum(a, 1, keepdim=True)
+b = torch.randint(0, 10, (3, 2)).float()
+c = a @ b
+print('a=')
+print(a)
+print('b=')
+print(b)
+print('c=')
+print(c)
+```
+
+```console
+a=
+tensor([[1.0000, 0.0000, 0.0000],
+        [0.5000, 0.5000, 0.0000],
+        [0.3333, 0.3333, 0.3333]])
+b=
+tensor([[2., 7.],
+        [6., 4.],
+        [6., 5.]])
+c=
+tensor([[2.0000, 7.0000],
+        [4.0000, 5.5000],
+        [4.6667, 5.3333]])
+```
+
+</details>
+
+#### Applying version 2
+
+We're going to have a matrix with the averages:
+
+```python
+wei = torch.tril(torch.ones(T, T))
+wei = wei / wei.sum(1, keepdim=True)
+wei
+```
+
+```console
+tensor([[1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+        [0.5000, 0.5000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+        [0.3333, 0.3333, 0.3333, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+        [0.2500, 0.2500, 0.2500, 0.2500, 0.0000, 0.0000, 0.0000, 0.0000],
+        [0.2000, 0.2000, 0.2000, 0.2000, 0.2000, 0.0000, 0.0000, 0.0000],
+        [0.1667, 0.1667, 0.1667, 0.1667, 0.1667, 0.1667, 0.0000, 0.0000],
+        [0.1429, 0.1429, 0.1429, 0.1429, 0.1429, 0.1429, 0.1429, 0.0000],
+        [0.1250, 0.1250, 0.1250, 0.1250, 0.1250, 0.1250, 0.1250, 0.1250]])
+```
+
+And we're going to multiply it with `xs`:
+
+```python
+xbow2 = wei @ xs # (T, T) @ (B, T, C) => (B, T, T) @ (B, T, C) => (B, T, C)
+print(xbow2[0])
+print(xbow[0])
+```
+
+```console
+tensor([[ 0.1808, -0.0700],
+        [-0.0894, -0.4926],
+        [ 0.1490, -0.3199],
+        [ 0.3504, -0.2238],
+        [ 0.3525,  0.0545],
+        [ 0.0688, -0.0396],
+        [ 0.0927, -0.0682],
+        [-0.0341,  0.1332]])
+tensor([[ 0.1808, -0.0700],
+        [-0.0894, -0.4926],
+        [ 0.1490, -0.3199],
+        [ 0.3504, -0.2238],
+        [ 0.3525,  0.0545],
+        [ 0.0688, -0.0396],
+        [ 0.0927, -0.0682],
+        [-0.0341,  0.1332]])
+```
+
+### Version 3
+
+<details>
+<summary>In the above version the weights were initialized as ones. How can we obtain the above results with the weights initialized to 0?</summary>
+
+We can use softmax!
+
+```python
+import torch.nn.functional as F
+tril = torch.tril(torch.ones(T, T)) # 0 => future (no attention), 1 => past (attention)
+wei = torch.zeros((T, T)) # these are our attention weights!
+wei = wei.masked_fill(tril == 0, float('-inf')) # the future cannot communicate with the past
+wei = F.softmax(wei, dim=-1)
+xbow3 = wei @ xs
+torch.allclose(xbow2, xbow3)
+```
+
+```console
+True
+```
+
+</details>
+
+## The use-case for self-attention
+
+Perfect - let's now implement self-attention in a single individual head!
+
+```python
+torch.manual_seed(1337)
+B, T, C = 4, 8, 32
+x = torch.randn(B, T, C)
+
+tril = torch.tril(torch.ones(T, T))
+wei = torch.zeros((T, T))
+wei = wei.masked_fill(tril == 0, float('-inf'))
+wei = F.softmax(wei, dim=-1)
+out = wei @ x
+
+out.shape
+```
+
+```console
+torch.Size([4, 8, 32])
+```
+
+```python
+tril
+```
+
+```console
+tensor([[1., 0., 0., 0., 0., 0., 0., 0.],
+        [1., 1., 0., 0., 0., 0., 0., 0.],
+        [1., 1., 1., 0., 0., 0., 0., 0.],
+        [1., 1., 1., 1., 0., 0., 0., 0.],
+        [1., 1., 1., 1., 1., 0., 0., 0.],
+        [1., 1., 1., 1., 1., 1., 0., 0.],
+        [1., 1., 1., 1., 1., 1., 1., 0.],
+        [1., 1., 1., 1., 1., 1., 1., 1.]])
+```
+
+```python
+wei
+```
+
+```console
+tensor([[1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+        [0.5000, 0.5000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+        [0.3333, 0.3333, 0.3333, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+        [0.2500, 0.2500, 0.2500, 0.2500, 0.0000, 0.0000, 0.0000, 0.0000],
+        [0.2000, 0.2000, 0.2000, 0.2000, 0.2000, 0.0000, 0.0000, 0.0000],
+        [0.1667, 0.1667, 0.1667, 0.1667, 0.1667, 0.1667, 0.0000, 0.0000],
+        [0.1429, 0.1429, 0.1429, 0.1429, 0.1429, 0.1429, 0.1429, 0.0000],
+        [0.1250, 0.1250, 0.1250, 0.1250, 0.1250, 0.1250, 0.1250, 0.1250]])
+```
+
+The code above does a simple average of the past tokens and the current token (past and future information is mixed together via an "average" function).
+
+However, we know that different words interact in various strengths with other words. So, we don't want the matrix `wei` to be initialized uniformly.
+
+- If the current token is a vowel it may search for the consonants in the past.
+
+We want to gather information from the past and we want to do it in a data dependent way. <- This is the problem that self-attention solves.
+
+## The solution
+
+### The $K$ and the $Q$
+
+Every single token will emit two vectors - a `query` and a `key`.
+
+- `query`: what am I looking for?
+- `key`: what do I contain?
+
+To get affinities between the keys and queries we do a dot product between them.
+
+- My query dot products with all the keys of all the other tokens.
+
+That dot product becomes `wei`.
+
+- If the key and query are aligned they'll interact to a high amount which would mean that I'll get to learn more about that specific token as opposed to any other token in the sequence.
+
+Thus, the weighted aggregation is done in a data-dependent manner.
+
+Let's see a single Head perform self-attention
+
+```python
+torch.manual_seed(1337)
+B, T, C = 4, 8, 32
+x = torch.randn(B, T, C)
+
+head_size = 16
+key = nn.Linear(C, head_size, bias=False)
+query = nn.Linear(C, head_size, bias=False)
+k = key(x) # (B, T, 16)
+q = query(x) # (B, T, 16)
+wei = q @ k.transpose(-2, -1) # (B, T, 16) @ (B, 16, T) ---> (B, T, T)
+
+tril = torch.tril(torch.ones(T, T))
+wei = wei.masked_fill(tril == 0, float('-inf'))
+wei = F.softmax(wei, dim=-1)
+out = wei @ x
+
+out.shape
+```
+
+```console
+torch.Size([4, 8, 32])
+```
+
+```python
+wei
+```
+
+```console
+tensor([[[1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+         [0.1574, 0.8426, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+         [0.2088, 0.1646, 0.6266, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+         [0.5792, 0.1187, 0.1889, 0.1131, 0.0000, 0.0000, 0.0000, 0.0000],
+         [0.0294, 0.1052, 0.0469, 0.0276, 0.7909, 0.0000, 0.0000, 0.0000],
+         [0.0176, 0.2689, 0.0215, 0.0089, 0.6812, 0.0019, 0.0000, 0.0000],
+         [0.1691, 0.4066, 0.0438, 0.0416, 0.1048, 0.2012, 0.0329, 0.0000],
+         [0.0210, 0.0843, 0.0555, 0.2297, 0.0573, 0.0709, 0.2023, 0.2391]],
+
+        [[1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+         [0.1687, 0.8313, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+         [0.2477, 0.0514, 0.7008, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+         [0.4410, 0.0957, 0.3747, 0.0887, 0.0000, 0.0000, 0.0000, 0.0000],
+         [0.0069, 0.0456, 0.0300, 0.7748, 0.1427, 0.0000, 0.0000, 0.0000],
+         [0.0660, 0.0892, 0.0413, 0.6316, 0.1649, 0.0069, 0.0000, 0.0000],
+         [0.0396, 0.2288, 0.0090, 0.2000, 0.2061, 0.1949, 0.1217, 0.0000],
+         [0.3650, 0.0474, 0.0767, 0.0293, 0.3084, 0.0784, 0.0455, 0.0493]],
+
+        [[1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+         [0.4820, 0.5180, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+         [0.1705, 0.4550, 0.3745, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+         [0.0074, 0.7444, 0.0477, 0.2005, 0.0000, 0.0000, 0.0000, 0.0000],
+         [0.8359, 0.0416, 0.0525, 0.0580, 0.0119, 0.0000, 0.0000, 0.0000],
+         [0.1195, 0.2061, 0.1019, 0.1153, 0.1814, 0.2758, 0.0000, 0.0000],
+         [0.0065, 0.0589, 0.0372, 0.3063, 0.1325, 0.3209, 0.1378, 0.0000],
+         [0.1416, 0.1519, 0.0384, 0.1643, 0.1207, 0.1254, 0.0169, 0.2408]],
+
+        [[1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+         [0.6369, 0.3631, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+         [0.2586, 0.7376, 0.0038, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+         [0.4692, 0.3440, 0.1237, 0.0631, 0.0000, 0.0000, 0.0000, 0.0000],
+         [0.1865, 0.4680, 0.0353, 0.1854, 0.1248, 0.0000, 0.0000, 0.0000],
+         [0.0828, 0.7479, 0.0017, 0.0735, 0.0712, 0.0228, 0.0000, 0.0000],
+         [0.0522, 0.0517, 0.0961, 0.0375, 0.1024, 0.5730, 0.0872, 0.0000],
+         [0.0306, 0.2728, 0.0333, 0.1409, 0.1414, 0.0582, 0.0825, 0.2402]]],
+       grad_fn=<SoftmaxBackward0>)
+```
+
+- Before `wei` was constant - it was applied in the same way to all the batch elements.
+- Now every batch element would have its own `wei` because there're different tokens in different positions.
+
+Let's inspect the last token from the first row:
+
+```console
+tensor([0.0210, 0.0843, 0.0555, 0.2297, 0.0573, 0.0709, 0.2023, 0.2391],
+       grad_fn=<SelectBackward0>)
+```
+
+How can we interpret it?
+
+1. We're at the eight token.
+2. It knows what content it has due to the input embedding.
+3. It knows what position it's in due to the positional encoding.
+4. Based on the above information it outputs a `query`: *Hey, I'm looking for this kind of stuff (I'm a vowel, I'm at the 8th position, I'm looking for consonants at positions up to 4.)*
+5. All the tokens emit keys. Maybe one of the channels is: *I'm a consonant at position up to 4.*
+6. That key would have a high value in that specific channel.
+7. That key and that query produce a high value when multiplied and basically *find each other*.
+
+We can see that the token in position 4 has the highest value (apart from the current token in position 8): $0.2297$. This means that through the softmax it'll aggregate the most amount of information.
+
+### The $V$
+
+There's one more part to a single self-attention head.
+
+Previously, when we did the aggregation we had this:
+
+```python
+out = wei @ x
+```
+
+We don't aggregate the raw tokens. Instead, we produce and aggregate the `value` of each token:
+
+```python
+torch.manual_seed(1337)
+B, T, C = 4, 8, 32
+x = torch.randn(B, T, C)
+
+head_size = 16
+key = nn.Linear(C, head_size, bias=False)
+query = nn.Linear(C, head_size, bias=False)
+value = nn.Linear(C, head_size, bias=False)
+k = key(x) # (B, T, 16)
+q = query(x) # (B, T, 16)
+v = value(x) # (B, T, 16)
+wei = q @ k.transpose(-2, -1) # (B, T, 16) @ (B, 16, T) ---> (B, T, T)
+
+tril = torch.tril(torch.ones(T, T))
+wei = wei.masked_fill(tril == 0, float('-inf'))
+wei = F.softmax(wei, dim=-1)
+
+out = wei @ v
+```
+
+This allows each `Head` to have its own version of the "public" information that is stored in `x` (if we regard `x` as holding "private" information that should not be shared among different heads).
+
+## The crux
+
+1. Attention is a communication mechanism. Can be seen as nodes in a directed graph looking at each other and aggregating information with a weighted sum from all nodes that point to them, with data-dependent weights.
+2. There is no notion of space. Attention acts over a set of vectors. This is why we need to positionally encode tokens.
+3. Each set of examples across the batch dimension is processed independently from the others. No "talking" is happening between batches.
+4. Self-attention means that the keys and values are produced from the same source as the queries.
+5. Cross-attention means that the queries get produced from `x`, but the keys and values come from some other external source (e.g. an encoder module).
+6. To get an "encoder" attention block, delete the line masking `tril`: `wei.masked_fill(tril == 0, float('-inf'))`. This will allow all tokens to communicate.
+7. "Scaled" attention includes the division of `wei` by $\frac{1}{\sqrt{\text{head\_size}}}$. This makes it so when the inputs $Q$ and $K$ have unit variance, `wei` will be unit variance too and softmax will stay diffuse and not saturated.
+
+Let's illustrate the last point with an example:
+
+```python
+k = torch.randn(B, T, head_size)
+q = torch.randn(B, T, head_size)
+wei = q @ k.transpose(-2, -1) # The variance will be around the order of head_size (16 in our case)
+print(k.var(), q.var(), wei.var())
+```
+
+```console
+tensor(1.0700) tensor(0.9006) tensor(18.0429)
+```
+
+But if we scale it, it'll be $1$:
+
+```python
+k = torch.randn(B, T, head_size)
+q = torch.randn(B, T, head_size)
+wei = q @ k.transpose(-2, -1) * head_size**-0.5
+print(k.var(), q.var(), wei.var())
+```
+
+```console
+tensor(1.0037) tensor(1.0966) tensor(1.2769)
+```
+
+Why is this important?
+
+- `wei` feeds into softmax;
+- if `wei` takes on very positive or very negative numbers, softmax will converge to one-hot vectors;
+
+```python
+torch.softmax(torch.tensor([0.1, -0.2, 0.3, -0.2, 0.5]), dim=-1)
+```
+
+```console
+tensor([0.1925, 0.1426, 0.2351, 0.1426, 0.2872])
+```
+
+```python
+torch.softmax(torch.tensor([0.1, -0.2, 0.3, -0.2, 0.5]) * 8, dim=-1)
+```
+
+```console
+tensor([0.0326, 0.0030, 0.1615, 0.0030, 0.8000])
+```
