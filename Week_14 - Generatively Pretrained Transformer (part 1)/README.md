@@ -316,7 +316,7 @@ Sample 8: given [57, 58, 6, 1, 61, 47, 58, 46], predict 0
 
 **Description:**
 
-Create an $n$gram language model as discussed in `notes.md`. Pass the above generated batch to it and output:
+Create an `n`-gram language model as discussed in `notes.md`. Pass the above generated batch to it and output:
 
 - the shape of the logits.
 - the value of the loss.
